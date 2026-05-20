@@ -65,12 +65,12 @@ const StoreContextProvider = ({ children }) => {
         if (savedUsername) setUsername(savedUsername);
 
         if (savedSubRegion) setSelectedSubRegion(JSON.parse(savedSubRegion));
-        
+
         // --- Configured Branch for Initial Load ---
-        const hardcodedBranch = { 
-          id: Config.DEFAULT_BRANCH_ID, 
-          name: Config.DEFAULT_BRANCH_NAME, 
-          company_id: Config.COMPANY_ID 
+        const hardcodedBranch = {
+          id: Config.DEFAULT_BRANCH_ID,
+          name: Config.DEFAULT_BRANCH_NAME,
+          company_id: Config.COMPANY_ID
         };
         setSelectedBranch(hardcodedBranch);
         await fetchMenu(hardcodedBranch.id);
@@ -101,6 +101,10 @@ const StoreContextProvider = ({ children }) => {
 
     initApp();
   }, []);
+
+  // useEffect(() => {
+  //   console.log('🛒 Cart Updated:', JSON.stringify(cartItems, null, 2));
+  // }, [cartItems]);
 
   const loginStub = (id, password) => {
     if (id === Config.ADMIN_USERNAME && password === Config.ADMIN_PASSWORD) {

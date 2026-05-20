@@ -11,8 +11,8 @@ export const CustomNavBar = () => {
   const orderType = ctx.orderDetails?.orderType;
   const { selectedBranch } = ctx;
   const { theme } = useContext(ThemeContext);
-  const deliveryIcon = require('../assets/Delivery.png');
-  const pickupIcon   = require('../assets/Pickup.png');
+  const takeawayIcon = require('../assets/pickup.png');
+  const dineInIcon = require('../assets/DineIn.png');
 
   // read selectedTable and branch from current route params or context
   return (
@@ -21,10 +21,10 @@ export const CustomNavBar = () => {
       <TouchableOpacity onPress={() => navigation.openDrawer()}>
         <Image source={require('../assets/list.png')} style={styles.menuIcon} />
       </TouchableOpacity>
-      
+
       {/* Center: Brand & Branch Info */}
       <View style={styles.centerWrap}>
-        <Image source={require('../assets/Kruncheese.png')} style={styles.logo} />
+        <Image source={require('../assets/logo-2x.png')} style={styles.logo} />
         {selectedBranch && (
           <Text style={[styles.branchName, { color: theme.colors.primary }]}>
             {selectedBranch.name.toUpperCase()}
@@ -34,19 +34,18 @@ export const CustomNavBar = () => {
 
       {/* Right side: order-type badge */}
       <View style={styles.rightWrap}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.orderTypeBadge}
           onPress={() => navigation.navigate('Profile')}
         >
-          {orderType === 'Delivery' || orderType === 'Takeaway' ? (
-            <Image 
-              source={orderType === 'Takeaway' ? pickupIcon : deliveryIcon} 
-              style={styles.typeIcon} 
-            />
+          {orderType === 'Dine In' ? (
+            <Image source={dineInIcon} style={styles.typeIcon} />
+          ) : orderType === 'Takeaway' ? (
+            <Image source={takeawayIcon} style={styles.typeIcon} />
           ) : (
             <View style={styles.bothIcons}>
-               <Image source={deliveryIcon} style={styles.typeIconSmall} />
-               <Image source={pickupIcon} style={styles.typeIconSmall} />
+              <Image source={dineInIcon} style={styles.typeIconSmall} />
+              <Image source={takeawayIcon} style={styles.typeIconSmall} />
             </View>
           )}
         </TouchableOpacity>

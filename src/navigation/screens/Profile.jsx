@@ -12,8 +12,8 @@ import { StoreContext } from '../../context/StoreContext';
 import { useNavigation } from '@react-navigation/native';
 import { ThemeContext } from '../../context/ThemeContext';
 
-const deliveryIcon = require('../../assets/Delivery.png');
-const pickupIcon   = require('../../assets/Pickup.png');
+const deliveryIcon = require('../../assets/pickup.png');
+const pickupIcon   = require('../../assets/DineIn.png');
 
 export default function Profile() {
   const navigation = useNavigation();
@@ -28,18 +28,23 @@ export default function Profile() {
       Toast.show({
         type: 'error',
         text1: 'Missing info',
-        text2: 'Please select Delivery or Takeaway.',
+        text2: 'Please select Dine In or Takeaway.',
         position: 'bottom',
       });
       return;
     }
 
-    // Save only orderType
-    updateOrderDetails({ orderType });
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'HomeTabs', params: { screen: 'Updates' } }],
-    });
+    if (orderType === 'Dine In') {
+      updateOrderDetails({ orderType });
+      navigation.navigate('TableSelection');
+    } else {
+      // Takeaway
+      updateOrderDetails({ orderType, table_id: 3001 });
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'HomeTabs', params: { screen: 'Updates' } }],
+      });
+    }
   };
 
   return (

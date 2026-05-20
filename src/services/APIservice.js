@@ -114,6 +114,35 @@ export const getDealDetails = async (deal_id, company_id = Config.COMPANY_ID, br
 };
 
 /**
+ * 9. Get tables for a branch
+ */
+export const getTables = async (branch_id = Config.DEFAULT_BRANCH_ID) => {
+  try {
+    const response = await apiClient.get(`/tables?branch_id=${branch_id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching tables:", error);
+    throw error;
+  }
+};
+
+/**
+ * 10. Remove (un-select) a table
+ */
+export const removeTable = async (branch_id, table_number) => {
+  try {
+    const response = await apiClient.post('/tables/remove', {
+      branch_id,
+      table_number
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error removing table:", error);
+    throw error;
+  }
+};
+
+/**
  * Legacy support for banners 
  */
 export const getBanners = async () => {

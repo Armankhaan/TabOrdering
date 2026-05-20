@@ -13,13 +13,14 @@ import { useNavigation } from '@react-navigation/native';
 import { ThemeContext } from '../../context/ThemeContext';
 import { StoreContext } from '../../context/StoreContext';
 import { MapPin, ArrowRight, Settings as SettingsIcon } from 'lucide-react-native';
+import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
 
 export function Home() {
   const navigation = useNavigation();
   const { theme } = useContext(ThemeContext);
-  const { selectedBranch, banners, username } = useContext(StoreContext);
+  const { selectedBranch, banners, username, orderDetails } = useContext(StoreContext);
   const styles = getStyles(theme);
 
   return (
@@ -78,7 +79,19 @@ export function Home() {
         <View style={styles.actionsGrid}>
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: theme.colors.primary }]}
-            onPress={() => navigation.navigate('Updates')}
+            onPress={() => {
+              if (!orderDetails?.orderType) {
+                Toast.show({
+                  type: 'info',
+                  text1: 'Order Type Required',
+                  text2: 'Please select Dine In or Takeaway first.',
+                  position: 'bottom'
+                });
+                navigation.navigate('Profile');
+              } else {
+                navigation.navigate('Updates');
+              }
+            }}
           >
             <Text style={styles.actionBtnText}>Explore Menu</Text>
           </TouchableOpacity>

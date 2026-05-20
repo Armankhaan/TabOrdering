@@ -50,7 +50,7 @@ export const Login = () => {
       <View style={styles.inner}>
         <View style={styles.logoContainer}>
           <Image
-            source={require('../../assets/Kruncheese.png')}
+            source={require('../../assets/logo-2x.png')}
             style={styles.logo}
             resizeMode="contain"
           />

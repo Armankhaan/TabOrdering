@@ -13,18 +13,25 @@ import {
 import { DrawerActions } from '@react-navigation/native';
 import { StoreContext } from '../context/StoreContext';
 import { ThemeContext } from '../context/ThemeContext';
+import Toast from 'react-native-toast-message';
 
 export function CustomDrawerContent({ navigation, ...props }) {
-  const { username, customerInfo, selectedBranch, clearCustomerInfo } = useContext(StoreContext);
+  const { username, customerInfo, selectedBranch, clearCustomerInfo, orderDetails } = useContext(StoreContext);
   const { theme, toggleTheme } = useContext(ThemeContext);
 
   const handleLogout = () => {
     clearCustomerInfo();
     navigation.dispatch(DrawerActions.closeDrawer());
-    // Use reset to clear the stack and go to Login
     navigation.reset({
       index: 0,
-      routes: [{ name: 'Login' }],
+      routes: [
+        {
+          name: 'Root',
+          state: {
+            routes: [{ name: 'Login' }],
+          },
+        },
+      ],
     });
   };
 
@@ -115,10 +122,20 @@ export function CustomDrawerContent({ navigation, ...props }) {
           style={[styles.exploreCard, { backgroundColor: theme.colors.primary }]}
           onPress={() => {
             navigation.dispatch(DrawerActions.closeDrawer());
-            navigation.navigate('Root', {
-              screen: 'HomeTabs',
-              params: { screen: 'Updates', params: { category: 'All' } },
-            });
+            if (!orderDetails?.orderType) {
+              Toast.show({
+                type: 'info',
+                text1: 'Order Type Required',
+                text2: 'Please select Dine In or Takeaway first.',
+                position: 'bottom'
+              });
+              navigation.navigate('Root', { screen: 'Profile' });
+            } else {
+              navigation.navigate('Root', {
+                screen: 'HomeTabs',
+                params: { screen: 'Updates', params: { category: 'All' } },
+              });
+            }
           }}
         >
           <Text style={[styles.exploreText, { color: theme.colors.text }]}>

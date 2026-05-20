@@ -11,7 +11,7 @@ export function Updates() {
   const navigation = useNavigation();
   const route = useRoute();
   const { theme } = useContext(ThemeContext);
-  const { customerInfo, selectedBranch } = useContext(StoreContext);
+  const { customerInfo, selectedBranch, orderDetails } = useContext(StoreContext);
 
   const [category, setCategory] = useState('All');
   const selectedTable = route.params?.table || null; // Still support table if passed from elsewhere
@@ -30,8 +30,14 @@ export function Updates() {
         index: 0,
         routes: [{ name: 'LocationSelection' }],
       });
+      return;
     }
-  }, [selectedBranch, navigation]);
+
+    // NEW: If no order type is selected, go to Profile (Order Type Selection)
+    if (!orderDetails?.orderType) {
+      navigation.navigate('Profile');
+    }
+  }, [selectedBranch, orderDetails, navigation]);
 
   return (
     <>

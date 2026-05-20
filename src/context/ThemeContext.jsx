@@ -12,19 +12,8 @@ export const ThemeContext = createContext({
 });
 
 export const ThemeProvider = ({ children }) => {
-  // Initialize theme based on system preference
-  const colorScheme = Appearance.getColorScheme();
-  const [theme, setTheme] = useState(
-    colorScheme === 'dark' ? DarkTheme : LightTheme
-  );
-
-  // Listen for system theme changes
-  useEffect(() => {
-    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
-      setTheme(colorScheme === 'dark' ? DarkTheme : LightTheme);
-    });
-    return () => subscription.remove();
-  }, []);
+  // Hardcode LightTheme as the default
+  const [theme, setTheme] = useState(LightTheme);
 
   // Manual toggle (for a switch in your UI)
   const toggleTheme = () => {

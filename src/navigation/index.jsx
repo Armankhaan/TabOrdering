@@ -27,6 +27,7 @@ import ProceedToCheckout from './screens/ProceedtoCheckout';
 import OrderSuccess from './screens/OrderSuccess';
 import { LocationSelection } from './screens/LocationSelection';
 import { Login } from './screens/Login';
+import TableSelection from './screens/TableSelection';
 
 // assets
 import menuIcon from '../assets/menu.png';
@@ -113,6 +114,17 @@ export function RootStackNavigator() {
       <Stack.Screen name="Login" component={Login} />
       <Stack.Screen name="LocationSelection" component={LocationSelection} />
       <Stack.Screen name="HomeTabs" component={HomeTabs} />
+
+      <Stack.Screen
+        name="TableSelection"
+        component={TableSelection}
+        options={{
+          headerShown: true,
+          title: 'Select Table',
+          headerStyle,
+          headerTintColor,
+        }}
+      />
 
       <Stack.Screen
         name="Profile"

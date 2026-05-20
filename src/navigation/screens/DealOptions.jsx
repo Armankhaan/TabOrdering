@@ -28,6 +28,7 @@ export function DealOptions() {
     price: basePrice,
     image,
     ref_code,
+    pos_code,
     attached_items = [], // These are the "slots" in the deal
   } = params;
 
@@ -150,7 +151,7 @@ export function DealOptions() {
       basePrice,
       quantity,
     };
-    addToCart(cartKey, totalPrice, name, image, ref_code, details, quantity);
+    addToCart(cartKey, totalPrice, name, image, pos_code || ref_code, details, quantity);
     navigation.goBack();
   };
 
