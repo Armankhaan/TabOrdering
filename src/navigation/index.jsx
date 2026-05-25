@@ -23,7 +23,7 @@ import { NotFound } from './screens/NotFound';
 import { DealOptions } from './screens/DealOptions';
 import { ItemOptions } from './screens/ItemOptions';
 import { Cart } from './screens/Cart';
-import ProceedToCheckout from './screens/ProceedtoCheckout';
+// import ProceedToCheckout from './screens/ProceedtoCheckout';
 import OrderSuccess from './screens/OrderSuccess';
 import { LocationSelection } from './screens/LocationSelection';
 import { Login } from './screens/Login';
@@ -178,6 +178,7 @@ export function RootStackNavigator() {
         }}
       />
 
+      {/* 
       <Stack.Screen
         name="ProceedToCheckout"
         component={ProceedToCheckout}
@@ -188,6 +189,7 @@ export function RootStackNavigator() {
           headerTintColor,
         }}
       />
+      */}
 
       <Stack.Screen
         name="OrderSuccess"

@@ -49,7 +49,7 @@ const PlaceOrderScreen = () => {
         branch_id: selectedBranch?.id || Config.DEFAULT_BRANCH_ID,
         order_info: {
           cart: cartItems,
-          orderType: orderDetails?.orderType || "Takeaway",
+          orderType: orderDetails?.orderType || "Dine In",
           table_id: orderDetails?.table_id || 3001,
           paymentMethod: paymentMethod,
           customerInfo: customerInfo

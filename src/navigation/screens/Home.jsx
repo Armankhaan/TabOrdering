@@ -84,7 +84,7 @@ export function Home() {
                 Toast.show({
                   type: 'info',
                   text1: 'Order Type Required',
-                  text2: 'Please select Dine In or Takeaway first.',
+                  text2: 'Please select Dine In first.',
                   position: 'bottom'
                 });
                 navigation.navigate('Profile');

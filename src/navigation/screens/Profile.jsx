@@ -21,14 +21,14 @@ export default function Profile() {
   const { theme } = useContext(ThemeContext);
   const styles = makeStyles(theme);
 
-  const [orderType, setOrderType] = useState(orderDetails?.orderType ?? '');
+  const [orderType, setOrderType] = useState(orderDetails?.orderType ?? 'Dine In');
 
   const onDone = () => {
     if (!orderType) {
       Toast.show({
         type: 'error',
         text1: 'Missing info',
-        text2: 'Please select Dine In or Takeaway.',
+        text2: 'Please select Dine In.',
         position: 'bottom',
       });
       return;
@@ -37,13 +37,6 @@ export default function Profile() {
     if (orderType === 'Dine In') {
       updateOrderDetails({ orderType });
       navigation.navigate('TableSelection');
-    } else {
-      // Takeaway
-      updateOrderDetails({ orderType, table_id: 3001 });
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'HomeTabs', params: { screen: 'Updates' } }],
-      });
     }
   };
 
@@ -52,7 +45,7 @@ export default function Profile() {
       <Text style={styles.header}>Choose Order Type</Text>
 
       <View style={styles.row}>
-        {['Dine In', 'Takeaway'].map(type => (
+        {['Dine In'].map(type => (
           <TouchableOpacity
             key={type}
             style={[
@@ -62,7 +55,7 @@ export default function Profile() {
             onPress={() => setOrderType(type)}
           >
             <Image
-              source={type === 'Takeaway' ? deliveryIcon : pickupIcon}
+              source={pickupIcon}
               style={styles.icon}
             />
             <Text style={styles.typeText}>{type}</Text>

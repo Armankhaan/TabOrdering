@@ -38,16 +38,7 @@ export const CustomNavBar = () => {
           style={styles.orderTypeBadge}
           onPress={() => navigation.navigate('Profile')}
         >
-          {orderType === 'Dine In' ? (
-            <Image source={dineInIcon} style={styles.typeIcon} />
-          ) : orderType === 'Takeaway' ? (
-            <Image source={takeawayIcon} style={styles.typeIcon} />
-          ) : (
-            <View style={styles.bothIcons}>
-              <Image source={dineInIcon} style={styles.typeIconSmall} />
-              <Image source={takeawayIcon} style={styles.typeIconSmall} />
-            </View>
-          )}
+          <Image source={dineInIcon} style={styles.typeIcon} />
         </TouchableOpacity>
       </View>
     </View>

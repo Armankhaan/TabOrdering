@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StoreContext } from '../../context/StoreContext';
 import { ThemeContext } from '../../context/ThemeContext';
 import { ChevronDown, ChevronUp, Plus, Minus, Check } from 'lucide-react-native';
@@ -10,6 +11,7 @@ export function ItemOptions({ route }) {
     const { addToCart, selectedBranch, loading: contextLoading } = useContext(StoreContext);
     const { theme } = useContext(ThemeContext);
     const styles = getStyles(theme);
+    const insets = useSafeAreaInsets();
 
     // Initial product data from route params
     const product = route.params || {};
@@ -199,7 +201,7 @@ export function ItemOptions({ route }) {
 
     return (
         <View style={styles.container}>
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+            <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 + insets.bottom }]}>
                 <View style={styles.headerPanel}>
                     {image && (
                         <Image 
@@ -344,7 +346,7 @@ export function ItemOptions({ route }) {
                 })}
             </ScrollView>
 
-            <View style={[styles.footer, { backgroundColor: theme.colors.card }]}>
+            <View style={[styles.footer, { backgroundColor: theme.colors.card, paddingBottom: Math.max(insets.bottom, 24) }]}>
                 <TouchableOpacity 
                     style={[styles.confirmBtn, isProductIncomplete() && styles.confirmBtnIncomplete]}
                     onPress={handleAddToCart}

@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StoreContext } from '../../context/StoreContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ThemeContext } from '../../context/ThemeContext';
@@ -20,6 +21,7 @@ export function DealOptions() {
   const { theme } = useContext(ThemeContext);
   const styles = getStyles(theme);
   const { addToCart } = useContext(StoreContext);
+  const insets = useSafeAreaInsets();
 
   // Initial deal data from route params
   const {
@@ -157,7 +159,7 @@ export function DealOptions() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 + insets.bottom }]}>
         <View style={styles.headerPanel}>
           {image && <Image source={{ uri: image }} style={styles.heroImage} />}
           <View style={styles.infoBox}>
@@ -302,7 +304,7 @@ export function DealOptions() {
         })}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         <TouchableOpacity
           style={[styles.confirmBtn, !isAllSlotsFilled && styles.confirmBtnDisabled]}
           onPress={handleAddToCart}

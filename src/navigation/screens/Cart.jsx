@@ -1,15 +1,17 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { StoreContext } from '../../context/StoreContext';
 import { useNavigation } from '@react-navigation/native';
 import { ThemeContext } from '../../context/ThemeContext';
+import axios from 'axios';
+import Config from '../../constants/Config';
 
 
 // Component to render item details dynamically based on available fields
 const RenderDetails = ({ details }) => {
   const sel = details || {};
   const { theme } = useContext(ThemeContext);
-const styles = getStyles(theme);
+  const styles = getStyles(theme);
   return (
     <View style={styles.detailsContainer}>
 
@@ -74,14 +76,23 @@ const styles = getStyles(theme);
 
 export function Cart() {
   const { theme } = useContext(ThemeContext);
-const styles = getStyles(theme);
-  const { cartItems, removeFromCart,updateCartQuantity, customerInfo } = useContext(StoreContext);
+  const styles = getStyles(theme);
+  const {
+    cartItems,
+    removeFromCart,
+    updateCartQuantity,
+    customerInfo,
+    selectedBranch,
+    orderDetails,
+    clearCart
+  } = useContext(StoreContext);
   const [showDetails, setShowDetails] = useState({});
   const entries = Object.values(cartItems);
   const navigation = useNavigation();
   const [quantities, setQuantities] = useState(
     entries.reduce((acc, item) => ({ ...acc, [item.key]: item.quantity }), {})
   );
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setQuantities(
@@ -100,13 +111,40 @@ const styles = getStyles(theme);
     });
   };
 
-    const handleProceed = () => {
-       if (!customerInfo) {
-     navigation.navigate('HomeTabs', {
-       screen: 'Account'
-     });
-    } else {
-      navigation.navigate('ProceedToCheckout');
+  const handleSubmit = async () => {
+    if (loading) return;
+    if (!customerInfo) return navigation.navigate('Login');
+    if (!entries || !entries.length) return;
+
+    setLoading(true);
+
+    try {
+      const payload = {
+        company_id: selectedBranch?.company_id || Config.COMPANY_ID,
+        branch_id: selectedBranch?.id || Config.DEFAULT_BRANCH_ID,
+        order_info: {
+          cart: cartItems,
+          orderType: orderDetails?.orderType || "Dine In",
+          table_id: orderDetails?.table_id || 3001,
+          paymentMethod: 'Cash',
+          customerInfo: customerInfo
+        }
+      };
+
+      console.log('🚀 Sending Raw Cart Payload directly from Cart:', JSON.stringify(payload, null, 2));
+
+      const response = await axios.post(
+        'https://api-krc.shabanbabar.com/api/public/orders',
+        payload
+      );
+
+      clearCart();
+      navigation.navigate('OrderSuccess', { apiData: response.data || null });
+    } catch (err) {
+      console.error('Order Placement Error:', err);
+      Alert.alert('Error', 'An error occurred while placing the order.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -187,10 +225,13 @@ const styles = getStyles(theme);
 
           {/* REPLACED button */}
           <TouchableOpacity
-            onPress={handleProceed}
-            style={[styles.clearBtn, styles.proceedBtn]}
+            onPress={handleSubmit}
+            style={[styles.proceedBtn, loading && { opacity: 0.7 }]}
+            disabled={loading}
           >
-            <Text style={styles.clearBtnText}>Proceed to Checkout</Text>
+            <Text style={styles.clearBtnText}>
+              {loading ? 'Processing...' : 'Place Order Now'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
