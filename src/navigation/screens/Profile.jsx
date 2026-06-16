@@ -100,7 +100,7 @@ const makeStyles = theme => StyleSheet.create({
     width: 120,
   },
   typeBtnActive: {
-    backgroundColor: 'red',
+    backgroundColor: theme.colors.primary,
   },
   icon: {
     width: 48,

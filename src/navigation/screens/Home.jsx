@@ -88,6 +88,14 @@ export function Home() {
                   position: 'bottom'
                 });
                 navigation.navigate('Profile');
+              } else if (!orderDetails?.table_id) {
+                Toast.show({
+                  type: 'info',
+                  text1: 'Table Required',
+                  text2: 'Please select a table first.',
+                  position: 'bottom'
+                });
+                navigation.navigate('Profile');
               } else {
                 navigation.navigate('Updates');
               }

@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.tsx",
   "scripts": {
-    "start": "expo start --dev-client",
+    "start": "expo start",
+    "dev": "expo start --dev-client",
     "web": "expo start --web",
     "android": "expo run:android",
     "ios": "expo run:ios"

@@ -28,6 +28,7 @@ import OrderSuccess from './screens/OrderSuccess';
 import { LocationSelection } from './screens/LocationSelection';
 import { Login } from './screens/Login';
 import TableSelection from './screens/TableSelection';
+import { TodayOrders } from './screens/TodayOrders';
 
 // assets
 import menuIcon from '../assets/menu.png';
@@ -197,6 +198,17 @@ export function RootStackNavigator() {
         options={{
           headerShown: true,
           title: "Order Success",
+          headerStyle,
+          headerTintColor,
+        }}
+      />
+
+      <Stack.Screen
+        name="TodayOrders"
+        component={TodayOrders}
+        options={{
+          headerShown: true,
+          title: "Today's Orders",
           headerStyle,
           headerTintColor,
         }}

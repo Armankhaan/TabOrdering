@@ -1,5 +1,7 @@
 import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import DeviceInfo from 'react-native-device-info';
 import {
   getTradeAreas,
   resolveBranch,
@@ -33,6 +35,22 @@ const StoreContextProvider = ({ children }) => {
     const initApp = async () => {
       setLoading(true);
       try {
+        const safeGetItem = async (key) => {
+          try {
+            return await AsyncStorage.getItem(key);
+          } catch (e) {
+            console.warn(`Error reading key ${key} from AsyncStorage:`, e);
+            if (e.message && (e.message.includes('CursorWindow') || e.message.includes('too big'))) {
+              try {
+                await AsyncStorage.removeItem(key);
+              } catch (clearErr) {
+                console.warn(`Failed to clear oversized key ${key}:`, clearErr);
+              }
+            }
+            return null;
+          }
+        };
+
         const [
           cachedCart,
           cachedMenuData,
@@ -42,13 +60,13 @@ const StoreContextProvider = ({ children }) => {
           savedSubRegion,
           savedBranch
         ] = await Promise.all([
-          AsyncStorage.getItem('cartItems'),
-          AsyncStorage.getItem('menuData'),
-          AsyncStorage.getItem('banners'),
-          AsyncStorage.getItem('customerInfo'),
-          AsyncStorage.getItem('username'),
-          AsyncStorage.getItem('selectedSubRegion'),
-          AsyncStorage.getItem('selectedBranch'),
+          safeGetItem('cartItems'),
+          safeGetItem('menuData'),
+          safeGetItem('banners'),
+          safeGetItem('customerInfo'),
+          safeGetItem('username'),
+          safeGetItem('selectedSubRegion'),
+          safeGetItem('selectedBranch'),
         ]);
 
         if (cachedCart) setCartItems(JSON.parse(cachedCart));
@@ -66,22 +84,48 @@ const StoreContextProvider = ({ children }) => {
 
         if (savedSubRegion) setSelectedSubRegion(JSON.parse(savedSubRegion));
 
-        // --- Configured Branch for Initial Load ---
-        const hardcodedBranch = {
-          id: Config.DEFAULT_BRANCH_ID,
-          name: Config.DEFAULT_BRANCH_NAME,
-          company_id: Config.COMPANY_ID
-        };
-        setSelectedBranch(hardcodedBranch);
-        await fetchMenu(hardcodedBranch.id);
+        let activeBranch = null;
+        if (savedBranch) {
+          try {
+            activeBranch = JSON.parse(savedBranch);
+          } catch (e) {
+            console.warn('Failed to parse saved branch', e);
+          }
+        }
+        setSelectedBranch(activeBranch);
 
-        // Fetch trade areas
-        const tradeAreasData = await getTradeAreas(Config.COMPANY_ID);
-        if (tradeAreasData.status) {
-          setTradeAreas(tradeAreasData.trade_areas);
+        let userCompId = null;
+        if (savedCustomer) {
+          try {
+            userCompId = JSON.parse(savedCustomer).company_id;
+          } catch (e) {}
         }
 
-        // Fetch banners
+        const compIdToUse = activeBranch?.company_id || userCompId;
+
+        // Each network call is isolated — a failure in one won't abort the others
+        // Menu fetch
+        if (activeBranch && activeBranch.id && compIdToUse) {
+          try {
+            await fetchMenu(activeBranch.id, compIdToUse);
+          } catch (e) {
+            console.warn('Menu fetch failed, app will use cached menu data:', e.message);
+          }
+        }
+
+        // Trade areas fetch
+        if (compIdToUse) {
+          try {
+            const tradeAreasData = await getTradeAreas(compIdToUse);
+          if (tradeAreasData && tradeAreasData.status) {
+            setTradeAreas(tradeAreasData.trade_areas);
+          }
+          } catch (e) {
+            console.warn('Trade areas fetch failed, continuing without trade areas:', e.message);
+          }
+        }
+
+        // Banners fetch
         try {
           const bannersData = await getBanners();
           if (bannersData) {
@@ -89,11 +133,11 @@ const StoreContextProvider = ({ children }) => {
             await AsyncStorage.setItem('banners', JSON.stringify(bannersData));
           }
         } catch (e) {
-          console.log('Banners service currently unavailable, using cached/empty state');
+          console.log('Banners unavailable, using cached/empty state');
         }
 
       } catch (e) {
-        console.warn('Failed to initialize app data', e);
+        console.warn('Failed to initialize app data:', e.message);
       } finally {
         setLoading(false);
       }
@@ -106,32 +150,149 @@ const StoreContextProvider = ({ children }) => {
   //   console.log('🛒 Cart Updated:', JSON.stringify(cartItems, null, 2));
   // }, [cartItems]);
 
-  const loginStub = (id, password) => {
-    if (id === Config.ADMIN_USERNAME && password === Config.ADMIN_PASSWORD) {
-      const userInfo = { id: 1, name: 'Admin User', email: 'admin@krc.com' };
-      updateCustomerInfo(userInfo);
-      return true;
+  const loginUser = async (id, password) => {
+    let deviceId = '';
+    let deviceDetails = '';
+    try {
+      // getUniqueId() works across all versions of react-native-device-info
+      deviceId = await DeviceInfo.getUniqueId();
+      const deviceBrand = DeviceInfo.getBrand();
+      const deviceModel = DeviceInfo.getModel();
+      deviceDetails = `${deviceBrand} ${deviceModel}`;
+    } catch (deviceError) {
+      console.warn('Failed to retrieve device details:', deviceError.message || deviceError);
     }
-    return false;
+
+    try {
+      const payload = {
+        username: id,
+        password: password,
+        deviceId: deviceId,
+        device_id: deviceId,
+        deviceDetails: deviceDetails,
+        device_details: deviceDetails
+      };
+      console.log('Login payload:', payload);
+      const response = await axios.post(`${Config.BASE_URL}/app-users/login`, payload);
+
+      if (response.data && response.data.status) {
+        const user = response.data.user;
+        const userInfo = {
+          id: user.id,
+          name: user.username,
+          username: user.username,
+          email: user.email,
+          employee_id: user.employee_id,
+          company_id: user.company_id,
+          access_token: response.data.access_token
+        };
+        await updateCustomerInfo(userInfo);
+
+        if (user.branches && user.branches.length > 0) {
+          const branch = user.branches[0];
+          setSelectedBranch(branch);
+          await AsyncStorage.setItem('selectedBranch', JSON.stringify(branch));
+
+          // Dynamically fetch combined menu for the branch & company
+          try {
+            await fetchMenu(branch.id, user.company_id || branch.company_id);
+          } catch (menuErr) {
+            console.warn('Failed to fetch menu on login:', menuErr.message);
+          }
+        } else {
+          setSelectedBranch(null);
+          await AsyncStorage.removeItem('selectedBranch');
+          setMenuData({ categories: [], deals: [], branch: null });
+          await AsyncStorage.removeItem('menuData');
+        }
+
+        // Dynamically fetch trade areas for the user's company
+        if (user.company_id) {
+          try {
+            const tradeAreasData = await getTradeAreas(user.company_id);
+            if (tradeAreasData && tradeAreasData.status) {
+              setTradeAreas(tradeAreasData.trade_areas);
+            }
+          } catch (tradeErr) {
+            console.warn('Failed to fetch trade areas on login:', tradeErr.message);
+          }
+        }
+
+        return { success: true };
+      }
+      return {
+        success: false,
+        message: response.data && response.data.message ? response.data.message : 'Invalid credentials'
+      };
+    } catch (error) {
+      console.log('Login error:', error.message || error);
+      const apiMessage = error.response && error.response.data && error.response.data.message 
+        ? error.response.data.message 
+        : error.message || 'Login error occurred';
+      return { success: false, message: apiMessage };
+    }
   };
 
-  const fetchMenu = async (branchId = Config.DEFAULT_BRANCH_ID) => {
+  /**
+   * Slim down a category list for safe AsyncStorage caching.
+   * Removes large nested variant trees from products to stay well under
+   * Android's ~2MB CursorWindow limit.
+   */
+  const slimCategories = (categories = []) =>
+    categories.map(cat => ({
+      ...cat,
+      products: (cat.products || []).map(p => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        image: p.image,
+        description: p.description,
+        pos_code: p.pos_code,
+        ref_code: p.ref_code,
+        // Omit variants, addon_groups, etc. — too large for AsyncStorage
+      })),
+    }));
+
+  const fetchMenu = async (branchId, companyId) => {
     try {
-      const menuResponse = await getCombinedMenu(Config.COMPANY_ID, Config.DEFAULT_BRANCH_ID);
-      if (menuResponse.status) {
-        setMenuData({
-          categories: menuResponse.menu.categories,
-          deals: menuResponse.menu.deals || [],
-          branch: menuResponse.menu.branch,
-        });
-        await AsyncStorage.setItem('menuData', JSON.stringify({
-          categories: menuResponse.menu.categories,
-          deals: menuResponse.menu.deals || [],
-          branch: menuResponse.menu.branch,
-        }));
+      if (!branchId || !companyId) return;
+      const menuResponse = await getCombinedMenu(companyId, branchId);
+      if (menuResponse && menuResponse.status) {
+        const fullCategories = menuResponse.menu.categories || [];
+        const fullDeals = menuResponse.menu.deals || [];
+        const branch = menuResponse.menu.branch;
+
+        // Use full data in-memory for the running session
+        setMenuData({ categories: fullCategories, deals: fullDeals, branch });
+
+        // Cache only a slimmed payload to avoid CursorWindow overflow on Android
+        try {
+          const cachePayload = JSON.stringify({
+            categories: slimCategories(fullCategories),
+            deals: fullDeals.map(d => ({
+              id: d.id,
+              name: d.name,
+              price: d.price,
+              image: d.image,
+              ref_code: d.ref_code,
+              pos_code: d.pos_code,
+            })),
+            branch,
+          });
+          // Only persist if under 1.5 MB to be safe
+          if (cachePayload.length < 1_500_000) {
+            await AsyncStorage.setItem('menuData', cachePayload);
+          } else {
+            console.warn('menuData cache skipped — payload too large for AsyncStorage:', cachePayload.length, 'bytes');
+            await AsyncStorage.removeItem('menuData');
+          }
+        } catch (e) {
+          console.warn('Failed to save menuData cache:', e.message);
+        }
       }
     } catch (error) {
-      console.error("Error fetching menu for branch:", branchId, error);
+      console.error('Error fetching menu for branch:', branchId, error.message);
+      throw error; // Re-throw so initApp's try-catch can log it
     }
   };
 
@@ -148,7 +309,7 @@ const StoreContextProvider = ({ children }) => {
         await AsyncStorage.setItem('selectedBranch', JSON.stringify(branch));
 
         // Automatically fetch menu for the FORCED branch ID
-        await fetchMenu(Config.DEFAULT_BRANCH_ID);
+        await fetchMenu(branch.id, branch.company_id);
       }
     } catch (error) {
       console.error("Error resolving branch for sub-region:", subRegion.id, error);
@@ -223,9 +384,13 @@ const StoreContextProvider = ({ children }) => {
   const clearCustomerInfo = async () => {
     setUsername('');
     setCustomerInfo(null);
+    setSelectedBranch(null);
+    setMenuData({ categories: [], deals: [], branch: null });
     try {
       await AsyncStorage.removeItem('customerInfo');
       await AsyncStorage.removeItem('username');
+      await AsyncStorage.removeItem('selectedBranch');
+      await AsyncStorage.removeItem('menuData');
     } catch (e) {
       console.warn('Failed to clear user data', e);
     }
@@ -250,7 +415,7 @@ const StoreContextProvider = ({ children }) => {
         username,
         customerInfo,
         orderDetails,
-        loginStub,
+        loginStub: loginUser,
         updateUsername,
         updateCustomerInfo,
         updateOrderDetails,

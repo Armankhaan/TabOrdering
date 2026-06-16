@@ -12,6 +12,7 @@ import { StoreContext } from '../../context/StoreContext';
 import { ThemeContext } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { getTables, removeTable } from '../../services/APIservice';
+import { useIsFocused } from '@react-navigation/native';
 import Config from '../../constants/Config';
 import Toast from 'react-native-toast-message';
 
@@ -19,37 +20,54 @@ export default function TableSelection() {
   const navigation = useNavigation();
   const { theme } = useContext(ThemeContext);
   const { selectedBranch, updateOrderDetails } = useContext(StoreContext);
+
+  // If no branch is assigned, redirect to home or show a message
+  useEffect(() => {
+    if (!selectedBranch) {
+      // Navigate back to Home screen (or any appropriate screen)
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'HomeTabs', params: { screen: 'Updates' } }],
+      });
+    }
+  }, [selectedBranch, navigation]);
   
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const isFocused = useIsFocused();
   useEffect(() => {
-    const fetchTablesData = async () => {
+    let intervalId;
+    const fetchTables = async () => {
       try {
-        const branchId = selectedBranch?.id || Config.DEFAULT_BRANCH_ID;
-        const response = await getTables(branchId);
-        
-        if (response && response.available_tables) {
-          setTables(response.available_tables);
-        }
-      } catch (error) {
-        console.error('Error fetching tables:', error);
-        Toast.show({
-          type: 'error',
-          text1: 'Error',
-          text2: 'Failed to fetch tables. Please try again.',
-        });
-      } finally {
-        setLoading(false);
+        const branchId = selectedBranch?.id;
+        if (!branchId) return;
+        const resp = await getTables(branchId);
+        if (resp && resp.available_tables) setTables(resp.available_tables);
+      } catch (e) {
+        console.error('Polling error fetching tables:', e);
       }
     };
-
-    fetchTablesData();
-  }, [selectedBranch]);
+    if (isFocused) {
+      // initial fetch
+      fetchTables();
+      setLoading(false);
+      setLoading(false);
+      // poll every 5 seconds
+      intervalId = setInterval(fetchTables, 5000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isFocused, selectedBranch]);
 
   const handleTableSelect = async (table) => {
     try {
-      const branchId = selectedBranch?.id || Config.DEFAULT_BRANCH_ID;
+      const branchId = selectedBranch?.id;
+      if (!branchId) {
+        Toast.show({ type: 'error', text1: 'Error', text2: 'No branch selected.' });
+        return;
+      }
       // Extract digits only from table if it's like "Table 5"
       const tableNumber = typeof table === 'string' 
         ? table.replace(/^\D+/g, '') 
@@ -89,6 +107,19 @@ export default function TableSelection() {
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  // If there is no selected branch, show a friendly placeholder
+  if (!selectedBranch) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.header}>Branch not selected</Text>
+        <Text style={styles.emptyText}>Please select a branch before choosing a table.</Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Text style={styles.backBtnText}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }

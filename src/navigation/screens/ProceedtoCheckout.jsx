@@ -34,6 +34,38 @@ const PlaceOrderScreen = () => {
       )
     );
 
+  const transformCartItems = (cart) => {
+    const transformed = {};
+    Object.keys(cart).forEach(key => {
+      const item = cart[key];
+      if (key.startsWith('deal-') || (item.details && item.details.slots)) {
+        transformed[key] = item;
+      } else {
+        const productIdStr = key.split('-')[0];
+        const productId = parseInt(productIdStr) || item.details?.size?.item_id || 1;
+        transformed[key] = {
+          ...item,
+          details: {
+            id: productId,
+            name: item.name,
+            price: parseFloat(item.details?.size?.price || 0),
+            pos_code: item.details?.size?.pos_code || item.pos_code || null,
+            ref_code: item.details?.size?.ref_code || item.ref_code || '',
+            selected_toppings: (item.details?.customizations || []).map(c => ({
+              id: c.item_id || c.id,
+              name: c.item_name || c.name,
+              price: parseFloat(c.price || 0),
+              pos_code: c.pos_code || '',
+              quantity: c.quantity !== undefined ? c.quantity : 1,
+              ref_code: c.ref_code || ''
+            }))
+          }
+        };
+      }
+    });
+    return transformed;
+  };
+
   const handleSubmit = async () => {
     if (loading) return;
     if (!customerInfo) return navigation.navigate('Login');
@@ -44,11 +76,16 @@ const PlaceOrderScreen = () => {
     setLoading(true);
 
     try {
+      const transformedCart = transformCartItems(cartItems);
+
       const payload = {
-        company_id: selectedBranch?.company_id || Config.COMPANY_ID,
-        branch_id: selectedBranch?.id || Config.DEFAULT_BRANCH_ID,
+        company_id: customerInfo?.company_id || selectedBranch?.company_id,
+        branch_id: selectedBranch?.id,
+        username: customerInfo?.username || customerInfo?.name,
+        email: customerInfo?.email,
+        employee_id: customerInfo?.employee_id,
         order_info: {
-          cart: cartItems,
+          cart: transformedCart,
           orderType: orderDetails?.orderType || "Dine In",
           table_id: orderDetails?.table_id || 3001,
           paymentMethod: paymentMethod,

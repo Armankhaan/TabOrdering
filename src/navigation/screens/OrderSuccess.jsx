@@ -1,8 +1,9 @@
-import React, { useContext } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native'
+import React, { useContext, useEffect } from 'react'
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { useRoute, useNavigation, CommonActions } from '@react-navigation/native'
 import { ThemeContext } from '../../context/ThemeContext'
 import { StoreContext } from '../../context/StoreContext'
+import Toast from 'react-native-toast-message'
 
 export default function OrderSuccess() {
   const navigation = useNavigation()
@@ -11,6 +12,20 @@ export default function OrderSuccess() {
   const { updateOrderDetails } = useContext(StoreContext) || {}
   const styles = getStyles(theme)
 
+  useEffect(() => {
+    if (apiData && apiData.message) {
+      Toast.show({
+        type: 'success',
+        text1: 'Order Placed!',
+        text2: apiData.message,
+        position: 'top',
+      })
+    }
+    if (updateOrderDetails) {
+      updateOrderDetails(null)
+    }
+  }, [apiData, updateOrderDetails])
+
   return (
     <View style={styles.container}>
       <View style={styles.iconContainer}>
@@ -18,17 +33,23 @@ export default function OrderSuccess() {
       </View>
       
       <Text style={styles.title}>Order Placed!</Text>
-      <Text style={styles.subtitle}>API Server Response:</Text>
       
       <View style={styles.responseContainer}>
-        <ScrollView 
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={true}
-        >
-          <Text style={styles.responseText}>
-            {apiData ? JSON.stringify(apiData, null, 2) : 'No response data available.'}
-          </Text>
-        </ScrollView>
+        {apiData ? (
+          <View style={styles.successDetails}>
+            <Text style={styles.messageText}>
+              {apiData.message || 'Order placed successfully'}
+            </Text>
+            {apiData.order_number ? (
+              <View style={styles.orderNumberContainer}>
+                <Text style={styles.orderNumberLabel}>Order Number</Text>
+                <Text style={styles.orderNumberText}>{apiData.order_number}</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : (
+          <Text style={styles.responseText}>No response data available.</Text>
+        )}
       </View>
 
       <TouchableOpacity
@@ -48,6 +69,7 @@ export default function OrderSuccess() {
       >
         <Text style={styles.buttonText}>Start New Order</Text>
       </TouchableOpacity>
+      <Toast />
     </View>
   )
 }
@@ -75,35 +97,61 @@ const getStyles = theme => {
     title: {
       fontSize: 28,
       fontWeight: '800',
-      marginBottom: 8,
+      marginBottom: 32,
       color: text,
       textAlign: 'center',
     },
-    subtitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      marginBottom: 12,
-      color: theme.colors.primary,
-      opacity: 0.9,
-    },
     responseContainer: {
       width: '100%',
-      height: 300,
       backgroundColor: cardBg,
       borderRadius: 16,
-      padding: 16,
+      padding: 24,
       marginBottom: 32,
       borderWidth: 1,
       borderColor: isLight ? '#E0E0E0' : '#333',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    scrollView: {
-      flex: 1,
+    successDetails: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+    },
+    messageText: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: text,
+      textAlign: 'center',
+      marginBottom: 20,
+    },
+    orderNumberContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+      backgroundColor: isLight ? '#FFF' : '#2A2A2A',
+      borderRadius: 12,
+      width: '100%',
+      borderWidth: 1,
+      borderColor: isLight ? '#E0E0E0' : '#444',
+    },
+    orderNumberLabel: {
+      fontSize: 12,
+      color: isLight ? '#666' : '#AAA',
+      textTransform: 'uppercase',
+      letterSpacing: 1.5,
+      fontWeight: '700',
+      marginBottom: 6,
+    },
+    orderNumberText: {
+      fontSize: 36,
+      fontWeight: '900',
+      color: primary,
+      textAlign: 'center',
     },
     responseText: {
-      fontSize: 13,
-      fontFamily: 'Courier', // If available, otherwise default
-      color: isLight ? '#333' : '#CCC',
-      lineHeight: 18,
+      fontSize: 14,
+      color: isLight ? '#666' : '#AAA',
+      textAlign: 'center',
     },
     button: {
       width: '100%',

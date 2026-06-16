@@ -1,13 +1,12 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { StoreContext } from '../../context/StoreContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { ThemeContext } from '../../context/ThemeContext';
 import axios from 'axios';
 import Config from '../../constants/Config';
 
 
-// Component to render item details dynamically based on available fields
 const RenderDetails = ({ details }) => {
   const sel = details || {};
   const { theme } = useContext(ThemeContext);
@@ -15,59 +14,52 @@ const RenderDetails = ({ details }) => {
   return (
     <View style={styles.detailsContainer}>
 
-      {/* Fries */}
-      {sel.Fries && (
-        <Text style={styles.detailLine}>
-          <Text style={styles.detailLabel}>Fries: </Text>
-          {sel.Fries.name}
-        </Text>
-      )}
-
-      {/* Drink */}
-      {sel.Drink && (
-        <Text style={styles.detailLine}>
-          <Text style={styles.detailLabel}>Drink: </Text>
-          {sel.Drink.name}
-        </Text>
-      )}
-
-      {/* Sizes */}
-      {sel.Sizes && (
+      {/* Selected Size */}
+      {sel.size && (
         <Text style={styles.detailLine}>
           <Text style={styles.detailLabel}>Size: </Text>
-          {sel.Sizes.name}
+          {sel.size.item_name} {Number(sel.size.price) > 0 ? `(Rs ${Number(sel.size.price).toFixed(0)})` : ''}
         </Text>
       )}
 
-      {/* Size Type */}
-      {sel.SizeType && (
-        <Text style={styles.detailLine}>
-          <Text style={styles.detailLabel}>Choice: </Text>
-          {sel.SizeType.type_name}
-        </Text>
-      )}
-
-      {/* Products list */}
-      {sel.products && (
+      {/* Slots & Toppings (for Deal Items) */}
+      {sel.slots && (
         <>
-          <Text style={styles.subHeading}>Products:</Text>
-          {Object.entries(sel.products).map(([prodKey, prod]) => (
-            <Text key={prodKey} style={styles.detailLine}>
-              <Text style={styles.detailLabel}>{prod.name}</Text>
-            </Text>
-          ))}
+          <Text style={styles.subHeading}>Selections:</Text>
+          {Object.entries(sel.slots).map(([slotId, prod]) => {
+            const slotToppings = prod.selected_toppings || [];
+            return (
+              <View key={slotId} style={{ marginBottom: 6, paddingLeft: 8 }}>
+                <Text style={[styles.detailLine, { fontWeight: '700' }]}>
+                  • {prod.name || prod.product?.name || prod.display_name}
+                </Text>
+                {slotToppings
+                  .map(t => {
+                    const isRemoved = t.quantity === -1;
+                    return (
+                      <Text key={t.id} style={[styles.detailLine, { paddingLeft: 12, fontSize: 13, opacity: isRemoved ? 0.5 : 0.8, textDecorationLine: isRemoved ? 'line-through' : 'none' }]}>
+                        {isRemoved ? '– [Removed] ' : '+ '} {t.name} {Number(t.price) > 0 ? `(Rs ${t.price})` : ''}
+                      </Text>
+                    );
+                  })}
+              </View>
+            );
+          })}
         </>
       )}
 
-      {/* Toppings */}
-      {Array.isArray(sel.Toppings) && (
+      {/* Customizations / Options */}
+      {sel.customizations && sel.customizations.length > 0 && (
         <>
-          <Text style={styles.subHeading}>Toppings:</Text>
-          {sel.Toppings.map((t) => (
-            <Text key={t.id} style={styles.detailLine}>
-              <Text style={styles.detailLabel}>{t.option_key}</Text>
-            </Text>
-          ))}
+          <Text style={styles.subHeading}>Options:</Text>
+          {sel.customizations.map((item, idx) => {
+            const isRemoved = item.quantity === -1;
+            return (
+              <Text key={item.item_id || idx} style={[styles.detailLine, { paddingLeft: 8, opacity: isRemoved ? 0.5 : 1, textDecorationLine: isRemoved ? 'line-through' : 'none' }]}>
+                {isRemoved ? '– [Removed] ' : '• '} {item.item_name} {Number(item.price) > 0 ? `(Rs ${Number(item.price).toFixed(0)})` : ''}
+              </Text>
+            );
+          })}
         </>
       )}
     </View>
@@ -89,6 +81,7 @@ export function Cart() {
   const [showDetails, setShowDetails] = useState({});
   const entries = Object.values(cartItems);
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
   const [quantities, setQuantities] = useState(
     entries.reduce((acc, item) => ({ ...acc, [item.key]: item.quantity }), {})
   );
@@ -103,12 +96,49 @@ export function Cart() {
     );
   }, [cartItems]);
 
+  useEffect(() => {
+    if (isFocused && !orderDetails?.table_id) {
+      navigation.navigate('Profile');
+    }
+  }, [orderDetails, navigation, isFocused]);
+
   const handleQuantityChange = (key, change) => {
-    setQuantities(prev => {
-      const newQuantity = Math.max(1, prev[key] + change);
-      updateCartQuantity(key, newQuantity);
-      return { ...prev, [key]: newQuantity };
+    const currentQty = quantities[key] || cartItems[key]?.quantity || 1;
+    const newQuantity = Math.max(1, currentQty + change);
+    setQuantities(prev => ({ ...prev, [key]: newQuantity }));
+    updateCartQuantity(key, newQuantity);
+  };
+
+  const transformCartItems = (cart) => {
+    const transformed = {};
+    Object.keys(cart).forEach(key => {
+      const item = cart[key];
+      if (key.startsWith('deal-') || (item.details && item.details.slots)) {
+        transformed[key] = item;
+      } else {
+        const productIdStr = key.split('-')[0];
+        const productId = parseInt(productIdStr) || item.details?.size?.item_id || 1;
+        transformed[key] = {
+          ...item,
+          details: {
+            id: productId,
+            name: item.name,
+            price: parseFloat(item.details?.size?.price || 0),
+            pos_code: item.details?.size?.pos_code || item.pos_code || null,
+            ref_code: item.details?.size?.ref_code || item.ref_code || '',
+            selected_toppings: (item.details?.customizations || []).map(c => ({
+              id: c.item_id || c.id,
+              name: c.item_name || c.name,
+              price: parseFloat(c.price || 0),
+              pos_code: c.pos_code || '',
+              quantity: c.quantity !== undefined ? c.quantity : 1,
+              ref_code: c.ref_code || ''
+            }))
+          }
+        };
+      }
     });
+    return transformed;
   };
 
   const handleSubmit = async () => {
@@ -119,11 +149,16 @@ export function Cart() {
     setLoading(true);
 
     try {
+      const transformedCart = transformCartItems(cartItems);
+
       const payload = {
-        company_id: selectedBranch?.company_id || Config.COMPANY_ID,
-        branch_id: selectedBranch?.id || Config.DEFAULT_BRANCH_ID,
+        company_id: customerInfo?.company_id || selectedBranch?.company_id,
+        branch_id: selectedBranch?.id,
+        username: customerInfo?.username || customerInfo?.name,
+        email: customerInfo?.email,
+        employee_id: customerInfo?.employee_id,
         order_info: {
-          cart: cartItems,
+          cart: transformedCart,
           orderType: orderDetails?.orderType || "Dine In",
           table_id: orderDetails?.table_id || 3001,
           paymentMethod: 'Cash',

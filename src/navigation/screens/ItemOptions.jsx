@@ -31,9 +31,52 @@ export function ItemOptions({ route }) {
     };
 
     // Categorization
-    const categoryName = (product.categoryName || '').toLowerCase();
-    const isPizza = categoryName.includes('pizza');
+    const categoryName = (product.categoryName || product.category?.name || product.category_name || '').toLowerCase();
+    const isPizza = categoryName.includes('pizza') || name.toLowerCase().includes('pizza');
     const isBurger = categoryName.includes('burger');
+
+    // Helper to determine if a nested topping heading is multi-select
+    const isHeadingMultiSelect = (heading) => {
+        const h = heading.toLowerCase();
+        if (h.includes('portion') || h.includes('sauce') || h.includes('crust')) return false;
+        return true;
+    };
+
+    // Helper to determine if a nested topping is default selected (heading contains "topping", price is 0)
+    const isDefaultNestedTopping = (heading, topping) => {
+        const hName = heading.toLowerCase();
+        const priceVal = parseFloat(topping.price || 0);
+        return hName.includes('topping') && priceVal === 0;
+    };
+
+    // Find selected size and selected crust
+    const sizeVariant = variants.find(v => v.name.toLowerCase().includes('size'));
+    let selectedCrustItem = null;
+    let selectedSizeOption = null;
+    if (sizeVariant) {
+        sizeVariant.options?.forEach(opt => {
+            const selection = selectedSelections[`${sizeVariant.id}_${opt.id}`];
+            if (selection) {
+                selectedCrustItem = selection;
+                selectedSizeOption = opt;
+            }
+        });
+    }
+
+    // Group nested options of the selected crust by heading
+    const nestedGroupedOptions = {};
+    if (selectedCrustItem && selectedCrustItem.options) {
+        selectedCrustItem.options.forEach(opt => {
+            const heading = opt.heading || 'Customization';
+            if (!nestedGroupedOptions[heading]) {
+                nestedGroupedOptions[heading] = [];
+            }
+            nestedGroupedOptions[heading].push(opt);
+        });
+    }
+
+    // Pizza size status
+    const anySizePicked = isPizza && !!selectedCrustItem;
 
     // Expand size and meal by default
     useEffect(() => {
@@ -47,13 +90,47 @@ export function ItemOptions({ route }) {
         setExpandedSections(initialExpanded);
     }, [variants]);
 
-    // Auto-selection for mandatory items with only 1 choice
+    // Auto-select nested options and expand headings by default when a size/crust is selected
+    useEffect(() => {
+        if (selectedCrustItem && selectedCrustItem.options) {
+            // Auto expand nested customization sections
+            setExpandedSections(prev => {
+                const next = { ...prev };
+                selectedCrustItem.options.forEach(opt => {
+                    const heading = opt.heading || 'Customization';
+                    next[heading] = true;
+                });
+                return next;
+            });
+        }
+    }, [selectedCrustItem]);
+
+    // Auto-selection for mandatory items with only 1 choice and default price 0 customization options (only toppings)
     useEffect(() => {
         if (variants.length > 0) {
             const autoPick = {};
             variants.forEach(v => {
                 const vn = v.name.toLowerCase();
-                if (vn.includes('customization') || vn.includes('add on') || vn.includes('addon')) return;
+                if (vn.includes('customization') || vn.includes('add on') || vn.includes('addon')) {
+                    v.options?.forEach(opt => {
+                        // Only process options that are toppings
+                        const optName = (opt.name || '').toLowerCase();
+                        if (!optName.includes('topping')) return;
+                        opt.items?.forEach(item => {
+                            const priceVal = parseFloat(item.price || 0);
+                            if (priceVal === 0) {
+                                autoPick[`${v.id}_${opt.id}_${item.id}`] = {
+                                    ...item,
+                                    variantId: v.id,
+                                    optionId: opt.id,
+                                    quantity: 1,
+                                    isDefault: true
+                                };
+                            }
+                        });
+                    });
+                    return;
+                }
                 if (v.options?.length === 1 && v.options[0].items?.length === 1) {
                     const opt = v.options[0];
                     const item = opt.items[0];
@@ -61,7 +138,7 @@ export function ItemOptions({ route }) {
                 }
             });
             if (Object.keys(autoPick).length > 0) {
-                setSelectedSelections(autoPick);
+                setSelectedSelections(prev => ({ ...prev, ...autoPick }));
             }
         }
     }, [variants]);
@@ -84,12 +161,6 @@ export function ItemOptions({ route }) {
     };
 
     const { hasDrink, hasFry } = isBurger ? getBurgerMealStatus() : { hasDrink: false, hasFry: false };
-
-    // Pizza size status
-    const anySizePicked = isPizza && Object.values(selectedSelections).some(s => {
-        const sv = variants.find(vr => vr.id === s.variantId);
-        return sv?.name.toLowerCase().includes('size');
-    });
 
     // Sorting Logic
     const displayVariants = [...variants].sort((a, b) => {
@@ -123,16 +194,40 @@ export function ItemOptions({ route }) {
 
         setSelectedSelections(prev => {
             const next = { ...prev };
-            if (isMultiSelect ? next[key] : next[key]?.id === item.id) {
-                delete next[key];
-            } else {
-                if (isRadio) {
-                    Object.keys(next).forEach(k => {
-                        if (k.startsWith(`${variantId}_`)) delete next[k];
-                    });
+            const priceVal = parseFloat(item.price || 0);
+            const currentVariant = variants.find(v => v.id === variantId);
+            const option = currentVariant?.options?.find(o => o.id === optionId);
+            const optName = (option?.name || '').toLowerCase();
+            const isDefault = isMultiSelect && priceVal === 0 && optName.includes('topping');
+
+            if (isDefault) {
+                const existing = next[key];
+                if (existing) {
+                    if (existing.quantity === 1) {
+                        next[key] = { ...item, variantId, optionId, quantity: -1, isDefault: true };
+                    } else {
+                        next[key] = { ...item, variantId, optionId, quantity: 1, isDefault: true };
+                        isNewSelection = true;
+                    }
+                } else {
+                    next[key] = { ...item, variantId, optionId, quantity: -1, isDefault: true };
                 }
-                next[key] = { ...item, variantId, optionId };
-                isNewSelection = true;
+            } else {
+                if (isMultiSelect ? next[key] : next[key]?.id === item.id) {
+                    delete next[key];
+                } else {
+                    if (isRadio) {
+                        Object.keys(next).forEach(k => {
+                            if (k.startsWith(`${variantId}_`)) delete next[k];
+                        });
+                        // Clear nested selections on size/crust change
+                        Object.keys(next).forEach(k => {
+                            if (k.startsWith('nested_')) delete next[k];
+                        });
+                    }
+                    next[key] = { ...item, variantId, optionId, quantity: 1 };
+                    isNewSelection = true;
+                }
             }
 
             // --- Auto Toggle Logic ---
@@ -175,28 +270,247 @@ export function ItemOptions({ route }) {
         });
     };
 
+    // Handle selection for nested toppings/options
+    const handleSelectNestedTopping = (heading, topping) => {
+        if (!selectedSizeOption || !selectedCrustItem || !sizeVariant) return;
+
+        const isMulti = isHeadingMultiSelect(heading);
+        const sizeVariantId = sizeVariant.id;
+        const sizeOptionId = selectedSizeOption.id;
+        const crustItemId = selectedCrustItem.id;
+
+        const baseKey = `nested_${sizeVariantId}_${sizeOptionId}_${crustItemId}_${heading}`;
+        const key = isMulti ? `${baseKey}_${topping.id}` : baseKey;
+        const isDefault = isMulti && isDefaultNestedTopping(heading, topping);
+
+        setSelectedSelections(prev => {
+            const next = { ...prev };
+            if (isDefault) {
+                const existing = next[key];
+                if (existing) {
+                    if (existing.quantity === 1) {
+                        next[key] = {
+                            ...topping,
+                            variantId: sizeVariantId,
+                            optionId: sizeOptionId,
+                            crustItemId: crustItemId,
+                            heading: heading,
+                            isNested: true,
+                            quantity: -1,
+                            isDefault: true
+                        };
+                    } else {
+                        next[key] = {
+                            ...topping,
+                            variantId: sizeVariantId,
+                            optionId: sizeOptionId,
+                            crustItemId: crustItemId,
+                            heading: heading,
+                            isNested: true,
+                            quantity: 1,
+                            isDefault: true
+                        };
+                    }
+                } else {
+                    next[key] = {
+                        ...topping,
+                        variantId: sizeVariantId,
+                        optionId: sizeOptionId,
+                        crustItemId: crustItemId,
+                        heading: heading,
+                        isNested: true,
+                        quantity: -1,
+                        isDefault: true
+                    };
+                }
+            } else {
+                if (isMulti) {
+                    if (next[key]) {
+                        delete next[key];
+                    } else {
+                        next[key] = {
+                            ...topping,
+                            variantId: sizeVariantId,
+                            optionId: sizeOptionId,
+                            crustItemId: crustItemId,
+                            heading: heading,
+                            isNested: true,
+                            quantity: 1
+                        };
+                    }
+                } else {
+                    // Radio button logic: delete all selections under this baseKey
+                    Object.keys(next).forEach(k => {
+                        if (k.startsWith(baseKey)) delete next[k];
+                    });
+                    next[key] = {
+                        ...topping,
+                        variantId: sizeVariantId,
+                        optionId: sizeOptionId,
+                        crustItemId: crustItemId,
+                        heading: heading,
+                        isNested: true,
+                        quantity: 1
+                    };
+                }
+            }
+            return next;
+        });
+    };
+
     // Calculate total price accurately
     useEffect(() => {
         let calc = parseFloat(price);
         Object.values(selectedSelections).forEach(item => {
-            calc += parseFloat(item.price || 0);
+            if (item.quantity === undefined || item.quantity > 0) {
+                calc += parseFloat(item.price || 0);
+            }
         });
         setTotalPrice(calc * quantity);
     }, [price, selectedSelections, quantity]);
 
     const handleAddToCart = () => {
+        // Ensure all price 0 customization options are present in selections
+        const finalSelections = { ...selectedSelections };
+        variants.forEach(v => {
+            const vn = v.name.toLowerCase();
+            if (vn.includes('customization') || vn.includes('add on') || vn.includes('addon')) {
+                v.options?.forEach(opt => {
+                    const optName = (opt.name || '').toLowerCase();
+                    if (!optName.includes('topping')) return;
+                    opt.items?.forEach(item => {
+                        const priceVal = parseFloat(item.price || 0);
+                        if (priceVal === 0) {
+                            const key = `${v.id}_${opt.id}_${item.id}`;
+                            if (!finalSelections[key]) {
+                                finalSelections[key] = {
+                                    ...item,
+                                    variantId: v.id,
+                                    optionId: opt.id,
+                                    quantity: 1,
+                                    isDefault: true
+                                };
+                            }
+                        }
+                    });
+                });
+            }
+        });
+
+        // Ensure nested price 0 customization options (toppings) are present in selections
+        if (isPizza && selectedCrustItem && selectedCrustItem.options && sizeVariant && selectedSizeOption) {
+            selectedCrustItem.options.forEach(opt => {
+                const heading = opt.heading || 'Customization';
+                if (isHeadingMultiSelect(heading) && isDefaultNestedTopping(heading, opt)) {
+                    const baseKey = `nested_${sizeVariant.id}_${selectedSizeOption.id}_${selectedCrustItem.id}_${heading}`;
+                    const key = `${baseKey}_${opt.id}`;
+                    if (!finalSelections[key]) {
+                        finalSelections[key] = {
+                            ...opt,
+                            variantId: sizeVariant.id,
+                            optionId: selectedSizeOption.id,
+                            crustItemId: selectedCrustItem.id,
+                            heading: heading,
+                            isNested: true,
+                            quantity: 1,
+                            isDefault: true
+                        };
+                    }
+                }
+            });
+        }
+
+        // Parse and structure size vs customizations/addons
+        let sizeSelection = null;
+        const customizationsSelections = [];
+
+        Object.values(finalSelections).forEach(selItem => {
+            if (selItem.isNested) {
+                // If it was deselected by user (quantity === -1), ignore it
+                if (selItem.quantity === -1) return;
+
+                const cleanItem = {
+                    variant_id: selItem.variantId,
+                    variant_name: "Customization",
+                    option_id: selItem.id,
+                    option_name: selItem.heading,
+                    item_id: selItem.id,
+                    item_name: selItem.name,
+                    price: parseFloat(selItem.price || 0),
+                    quantity: 1,
+                    pos_code: selItem.pos_code || selItem.ref_code || '',
+                    ref_code: selItem.ref_code || ''
+                };
+                customizationsSelections.push(cleanItem);
+                return;
+            }
+
+            const variant = variants.find(v => v.id === selItem.variantId);
+            const option = variant?.options?.find(o => o.id === selItem.optionId);
+            
+            if (variant && option) {
+                const isSize = variant.name.toLowerCase().includes('size');
+                const cleanItem = {
+                    variant_id: variant.id,
+                    variant_name: variant.name,
+                    option_id: option.id,
+                    option_name: option.name,
+                    item_id: selItem.id,
+                    item_name: selItem.name || selItem.title || selItem.product_name,
+                    price: parseFloat(selItem.price || 0),
+                    quantity: selItem.quantity !== undefined ? selItem.quantity : 1,
+                    pos_code: selItem.pos_code || selItem.ref_code || option.pos_code || option.ref_code || variant.pos_code || variant.ref_code || '',
+                    ref_code: selItem.ref_code || option.ref_code || variant.ref_code || ''
+                };
+
+                if (isSize) {
+                    sizeSelection = cleanItem;
+                } else {
+                    customizationsSelections.push(cleanItem);
+                }
+            }
+        });
+
         const details = {
-            selections: selectedSelections,
             basePrice: price,
+            size: sizeSelection,
+            customizations: customizationsSelections
         };
-        const cartKey = `${id}-${JSON.stringify(selectedSelections)}`;
-        addToCart(cartKey, totalPrice, name, image, ref_code, details, quantity);
+        const cartKey = `${id}-${JSON.stringify(details)}`;
+        addToCart(cartKey, totalPrice, name, image, product.pos_code || ref_code, details, quantity);
         navigation.goBack();
     };
 
-    const isItemSelected = (variantId, optionId, itemId, isMultiSelect) => {
+    const isItemSelected = (variantId, optionId, itemId, isMultiSelect, isNested = false, heading = '', crustItemId = '', toppingObj = null) => {
+        if (isNested) {
+            const baseKey = `nested_${variantId}_${optionId}_${crustItemId}_${heading}`;
+            const key = isMultiSelect ? `${baseKey}_${itemId}` : baseKey;
+            const selection = selectedSelections[key];
+            if (selection) {
+                return selection.quantity === 1;
+            }
+            if (isMultiSelect && toppingObj && isDefaultNestedTopping(heading, toppingObj)) {
+                return true;
+            }
+            return false;
+        }
+
         const key = isMultiSelect ? `${variantId}_${optionId}_${itemId}` : `${variantId}_${optionId}`;
-        return isMultiSelect ? !!selectedSelections[key] : selectedSelections[key]?.id === itemId;
+        if (isMultiSelect) {
+            const selection = selectedSelections[key];
+            if (selection) {
+                return selection.quantity === 1;
+            }
+            // If not found in state, check if its price is 0 (it is selected by default)
+            const variant = variants.find(v => v.id === variantId);
+            const option = variant?.options?.find(o => o.id === optionId);
+            const optName = (option?.name || '').toLowerCase();
+            const itemObj = option?.items?.find(i => i.id === itemId);
+            const priceVal = parseFloat(itemObj?.price || 0);
+            if (priceVal === 0 && optName.includes('topping')) return true;
+            return false;
+        }
+        return selectedSelections[key]?.id === itemId;
     };
 
     return (
@@ -339,6 +653,80 @@ export function ItemOptions({ route }) {
                                             </View>
                                         );
                                     })}
+                                </View>
+                            )}
+                        </View>
+                    );
+                })}
+
+                {/* Pizza Nested Customizations (Toppings, Portions, etc.) */}
+                {isPizza && selectedCrustItem && Object.keys(nestedGroupedOptions).map((heading) => {
+                    const headingToppings = nestedGroupedOptions[heading];
+                    const isMultiSelect = isHeadingMultiSelect(heading);
+                    
+                    return (
+                        <View key={heading} style={styles.variantContainer}>
+                            <TouchableOpacity 
+                                style={styles.variantHeader}
+                                onPress={() => toggleSection(heading)}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.variantTitle}>{heading}</Text>
+                                {expandedSections[heading] ? (
+                                    <ChevronUp size={20} color={theme.colors.text} />
+                                ) : (
+                                    <ChevronDown size={20} color={theme.colors.text} />
+                                )}
+                            </TouchableOpacity>
+
+                            {expandedSections[heading] && (
+                                <View style={styles.optionsWrapper}>
+                                    <View style={styles.itemGrid}>
+                                        {headingToppings.map((topping) => {
+                                            const selected = isItemSelected(
+                                                sizeVariant.id,
+                                                selectedSizeOption.id,
+                                                topping.id,
+                                                isMultiSelect,
+                                                true,
+                                                heading,
+                                                selectedCrustItem.id,
+                                                topping
+                                            );
+                                            return (
+                                                <TouchableOpacity
+                                                    key={topping.id}
+                                                    style={[
+                                                        styles.itemCard,
+                                                        selected && styles.itemCardSelected
+                                                    ]}
+                                                    onPress={() => handleSelectNestedTopping(heading, topping)}
+                                                >
+                                                    <View style={styles.itemCardContent}>
+                                                        <Text style={[
+                                                            styles.itemLabel,
+                                                            selected && styles.itemLabelSelected
+                                                        ]}>
+                                                            {topping.name}
+                                                        </Text>
+                                                        {Number(topping.price) > 0 && (
+                                                            <Text style={[
+                                                                styles.itemPrice,
+                                                                selected && styles.itemLabelSelected
+                                                            ]}>
+                                                                +Rs {Number(topping.price).toFixed(0)}
+                                                            </Text>
+                                                        )}
+                                                    </View>
+                                                    {selected && (
+                                                        <View style={styles.checkCircle}>
+                                                            <Check size={12} color="#fff" />
+                                                        </View>
+                                                    )}
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </View>
                                 </View>
                             )}
                         </View>

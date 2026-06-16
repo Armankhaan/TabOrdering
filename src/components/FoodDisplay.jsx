@@ -14,8 +14,8 @@ import FoodItem from './FoodItem';
 import DealItem from './DealItem';
 import { ThemeContext } from '../context/ThemeContext';
 
-const FoodDisplay = ({ category, addToCart }) => {
-  const { cartItems = {}, menuData = {}, orderDetails: od, loading } = useContext(StoreContext);
+const FoodDisplay = ({ category }) => {
+  const { cartItems = {}, menuData = {}, orderDetails: od, loading, addToCart } = useContext(StoreContext);
   const { categories: rawCategories = [], deals = [], branch } = menuData;
   const categories = deals.length > 0 
     ? [{ id: 'deals-cat', name: 'Deals', products: deals.map(d => ({ ...d, is_deal: true })) }, ...rawCategories]
@@ -62,6 +62,16 @@ const FoodDisplay = ({ category, addToCart }) => {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  if (categories.length === 0) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ fontSize: 16, color: theme.colors.text, opacity: 0.6, textAlign: 'center' }}>
+          No menu available. Please ensure a valid branch is assigned to your account.
+        </Text>
       </View>
     );
   }
@@ -187,10 +197,10 @@ const getStyles = (theme) =>
       fontWeight: 'bold',
       marginVertical: 10,
       textAlign: 'center',
-      backgroundColor: 'red',
-      borderRadius: 5,
-      color: theme.colors.text,
-      paddingVertical: 4,
+      backgroundColor: theme.colors.primary,
+      borderRadius: 12,
+      color: '#FFFFFF',
+      paddingVertical: 8,
       elevation: 3,
     },
     cartBar: {

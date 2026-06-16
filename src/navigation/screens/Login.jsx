@@ -24,9 +24,9 @@ export const Login = () => {
   const navigation = useNavigation();
   const styles = getStyles(theme);
 
-  const handleLogin = () => {
-    const success = loginStub(username, password);
-    if (success) {
+  const handleLogin = async () => {
+    const res = await loginStub(username, password);
+    if (res && res.success) {
       Toast.show({
         type: 'success',
         text1: 'Login Successful',
@@ -37,7 +37,7 @@ export const Login = () => {
       Toast.show({
         type: 'error',
         text1: 'Login Failed',
-        text2: `Invalid credentials. Use ${Config.ADMIN_USERNAME}/${Config.ADMIN_PASSWORD}`,
+        text2: res && res.message ? res.message : `Invalid credentials. Use ${Config.ADMIN_USERNAME}/${Config.ADMIN_PASSWORD}`,
       });
     }
   };

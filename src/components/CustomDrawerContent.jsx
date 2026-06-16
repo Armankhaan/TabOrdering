@@ -45,7 +45,7 @@ export function CustomDrawerContent({ navigation, ...props }) {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Image source={require('../assets/Kruncheese.png')} style={styles.logo} resizeMode="contain" />
+        <Image source={require('../assets/logo-2x.png')} style={styles.logo} resizeMode="contain" />
 
         {customerInfo ? (
           <View style={styles.profileBlock}>
@@ -130,6 +130,14 @@ export function CustomDrawerContent({ navigation, ...props }) {
                 position: 'bottom'
               });
               navigation.navigate('Root', { screen: 'Profile' });
+            } else if (!orderDetails?.table_id) {
+              Toast.show({
+                type: 'info',
+                text1: 'Table Required',
+                text2: 'Please select a table first.',
+                position: 'bottom'
+              });
+              navigation.navigate('Root', { screen: 'Profile' });
             } else {
               navigation.navigate('Root', {
                 screen: 'HomeTabs',
@@ -140,6 +148,21 @@ export function CustomDrawerContent({ navigation, ...props }) {
         >
           <Text style={[styles.exploreText, { color: theme.colors.text }]}>
             Explore Menu
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Today Orders */}
+      <View style={[styles.exploreWrapper, { paddingTop: 0 }]}>
+        <TouchableOpacity
+          style={[styles.exploreCard, { backgroundColor: theme.colors.primary }]}
+          onPress={() => {
+            navigation.dispatch(DrawerActions.closeDrawer());
+            navigation.navigate('Root', { screen: 'TodayOrders' });
+          }}
+        >
+          <Text style={[styles.exploreText, { color: theme.colors.text }]}>
+            Today Orders
           </Text>
         </TouchableOpacity>
       </View>
@@ -220,7 +243,7 @@ const styles = StyleSheet.create({
   profileInitial: { color: '#FFF', fontSize: 20, fontWeight: '700' },
   profileName: { fontSize: 18, fontWeight: '700' },
   branchText: { fontSize: 13, fontWeight: '600', marginTop: 2 },
-  
+
   divider: { height: 1, marginVertical: 8 },
 
   exploreWrapper: { paddingHorizontal: 16, paddingVertical: 12 },

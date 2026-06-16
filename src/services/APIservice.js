@@ -4,6 +4,7 @@ import Config from '../constants/Config';
 
 const apiClient = axios.create({
   baseURL: Config.BASE_URL,
+  timeout: 12000, // 12 second timeout — prevents indefinite hang on bad network
   headers: {
     'Accept': 'application/json',
   },
@@ -12,7 +13,7 @@ const apiClient = axios.create({
 /**
  * 1. Fetch all active regions and their underlying sub-regions
  */
-export const getTradeAreas = async (company_id = Config.COMPANY_ID) => {
+export const getTradeAreas = async (company_id) => {
   try {
     const response = await apiClient.get(`/trade-areas?company_id=${company_id}`);
     return response.data;
@@ -38,7 +39,7 @@ export const resolveBranch = async (sub_region_id) => {
 /**
  * 3. Fetch categories, products, and deals in one payload
  */
-export const getCombinedMenu = async (company_id = Config.COMPANY_ID, branch_id = Config.DEFAULT_BRANCH_ID) => {
+export const getCombinedMenu = async (company_id, branch_id) => {
   try {
     const response = await apiClient.get(`/menu?company_id=${company_id}&branch_id=${branch_id}`);
     return response.data;
@@ -51,7 +52,7 @@ export const getCombinedMenu = async (company_id = Config.COMPANY_ID, branch_id 
 /**
  * 4. Get active categories for a branch
  */
-export const getCategories = async (company_id = Config.COMPANY_ID, branch_id = Config.DEFAULT_BRANCH_ID) => {
+export const getCategories = async (company_id, branch_id) => {
   try {
     const response = await apiClient.get(`/categories?company_id=${company_id}&branch_id=${branch_id}`);
     return response.data;
@@ -64,7 +65,7 @@ export const getCategories = async (company_id = Config.COMPANY_ID, branch_id = 
 /**
  * 5. Get products for a branch by category
  */
-export const getProducts = async (company_id = Config.COMPANY_ID, branch_id = Config.DEFAULT_BRANCH_ID, category_id) => {
+export const getProducts = async (company_id, branch_id, category_id) => {
   try {
     const response = await apiClient.get(`/products?company_id=${company_id}&branch_id=${branch_id}&category_id=${category_id}`);
     return response.data;
@@ -77,7 +78,7 @@ export const getProducts = async (company_id = Config.COMPANY_ID, branch_id = Co
 /**
  * 6. Get single product with full variant hierarchy
  */
-export const getProductDetails = async (product_id, company_id = Config.COMPANY_ID, branch_id = Config.DEFAULT_BRANCH_ID) => {
+export const getProductDetails = async (product_id, company_id, branch_id) => {
   try {
     const response = await apiClient.get(`/products/${product_id}?company_id=${company_id}&branch_id=${branch_id}`);
     return response.data;
@@ -90,7 +91,7 @@ export const getProductDetails = async (product_id, company_id = Config.COMPANY_
 /**
  * 7. List all active deals for a branch
  */
-export const getDeals = async (company_id = Config.COMPANY_ID, branch_id = Config.DEFAULT_BRANCH_ID) => {
+export const getDeals = async (company_id, branch_id) => {
   try {
     const response = await apiClient.get(`/deals?company_id=${company_id}&branch_id=${branch_id}`);
     return response.data;
@@ -103,7 +104,7 @@ export const getDeals = async (company_id = Config.COMPANY_ID, branch_id = Confi
 /**
  * 8. Get single deal details and attached items
  */
-export const getDealDetails = async (deal_id, company_id = Config.COMPANY_ID, branch_id = Config.DEFAULT_BRANCH_ID) => {
+export const getDealDetails = async (deal_id, company_id, branch_id) => {
   try {
     const response = await apiClient.get(`/deals/${deal_id}?company_id=${company_id}&branch_id=${branch_id}`);
     return response.data;
@@ -116,7 +117,7 @@ export const getDealDetails = async (deal_id, company_id = Config.COMPANY_ID, br
 /**
  * 9. Get tables for a branch
  */
-export const getTables = async (branch_id = Config.DEFAULT_BRANCH_ID) => {
+export const getTables = async (branch_id) => {
   try {
     const response = await apiClient.get(`/tables?branch_id=${branch_id}`);
     return response.data;
@@ -138,6 +139,19 @@ export const removeTable = async (branch_id, table_number) => {
     return response.data;
   } catch (error) {
     console.error("Error removing table:", error);
+    throw error;
+  }
+};
+
+/**
+ * 11. Fetch today's orders list
+ */
+export const getTodayOrders = async () => {
+  try {
+    const response = await apiClient.get('/orders/today');
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching today's orders:", error);
     throw error;
   }
 };
