@@ -1,0 +1,498 @@
+// correct ha ye neechy wala 
+{
+    "cart": {
+        "item-1": {
+            "key": "item-1",
+            "name": "Half & Half Medium",
+            "image": null,
+            "price": 1550,
+            "details": {
+                "id": 135,
+                "name": "Half & Half Medium",
+                "price": 1550,
+                "pos_code": null,
+                "ref_code": null,
+                "firstHalf": {
+                    "crust": {
+                        "price": 1300,
+                        "item_id": 62,
+                        "pos_code": "734003647",
+                        "quantity": 0.5,
+                        "ref_code": "734003647",
+                        "item_name": "Authentic Thin",
+                        "option_id": 62,
+                        "variant_id": "half_1_crust",
+                        "option_name": "Crust",
+                        "variant_name": "Crust"
+                    },
+                    "pizza": {
+                        "price": 1300,
+                        "item_id": 67,
+                        "pos_code": null,
+                        "quantity": 0.5,
+                        "ref_code": null,
+                        "item_name": "Chipotle Hot",
+                        "option_id": 67,
+                        "variant_id": "half_1",
+                        "option_name": "Classic Pizzas",
+                        "variant_name": "1st Half"
+                    },
+                    "toppings": []
+                },
+                "secondHalf": {
+                    "crust": {
+                        "price": 1800,
+                        "item_id": 114,
+                        "pos_code": "2146435918",
+                        "quantity": 0.5,
+                        "ref_code": "2146435918",
+                        "item_name": "Authentic Thin",
+                        "option_id": 114,
+                        "variant_id": "half_2_crust",
+                        "option_name": "Crust",
+                        "variant_name": "Crust"
+                    },
+                    "pizza": {
+                        "price": 1800,
+                        "item_id": 83,
+                        "pos_code": null,
+                        "quantity": 0.5,
+                        "ref_code": null,
+                        "item_name": "Spicy Italian",
+                        "option_id": 83,
+                        "variant_id": "half_2",
+                        "option_name": "Signature Pizzas",
+                        "variant_name": "2nd Half"
+                    },
+                    "toppings": [
+                        {
+                            "price": 0,
+                            "heading": "TOPPINGS",
+                            "item_id": 389,
+                            "pos_code": "2146435657",
+                            "quantity": 1,
+                            "ref_code": "2146435657",
+                            "item_name": "Pepperoni",
+                            "option_id": 389,
+                            "variant_id": "half_2_customization",
+                            "option_name": "TOPPINGS",
+                            "variant_name": "2nd Half Customization"
+                        }
+                    ]
+                }
+            },
+            "options": [],
+            "pos_code": null,
+            "quantity": 1
+        },
+        "item-2": {
+            "key": "item-2",
+            "name": "Half & Half Medium",
+            "image": null,
+            "price": 1350,
+            "details": {
+                "id": 135,
+                "name": "Half & Half Medium",
+                "price": 1350,
+                "pos_code": null,
+                "ref_code": null,
+                "firstHalf": {
+                    "crust": {
+                        "price": 1400,
+                        "item_id": 91,
+                        "pos_code": "734003998",
+                        "quantity": 0.5,
+                        "ref_code": "734003998",
+                        "item_name": "Authentic Thin",
+                        "option_id": 91,
+                        "variant_id": "half_1_crust",
+                        "option_name": "Crust",
+                        "variant_name": "Crust"
+                    },
+                    "pizza": {
+                        "price": 1400,
+                        "item_id": 75,
+                        "pos_code": null,
+                        "quantity": 0.5,
+                        "ref_code": null,
+                        "item_name": "Garden Special Ranch",
+                        "option_id": 75,
+                        "variant_id": "half_1",
+                        "option_name": "Premium Pizzas",
+                        "variant_name": "1st Half"
+                    },
+                    "toppings": []
+                },
+                "secondHalf": {
+                    "crust": {
+                        "price": 1300,
+                        "item_id": 62,
+                        "pos_code": "734003454",
+                        "quantity": 0.5,
+                        "ref_code": "734003454",
+                        "item_name": "Authentic Thin",
+                        "option_id": 62,
+                        "variant_id": "half_2_crust",
+                        "option_name": "Crust",
+                        "variant_name": "Crust"
+                    },
+                    "pizza": {
+                        "price": 1300,
+                        "item_id": 69,
+                        "pos_code": null,
+                        "quantity": 0.5,
+                        "ref_code": null,
+                        "item_name": "Hot Popper Passion",
+                        "option_id": 69,
+                        "variant_id": "half_2",
+                        "option_name": "Classic Pizzas",
+                        "variant_name": "2nd Half"
+                    },
+                    "toppings": []
+                }
+            },
+            "options": [],
+            "pos_code": null,
+            "quantity": 1
+        },
+        "item-3": {
+            "key": "item-3",
+            "name": "Half & Half Medium",
+            "image": null,
+            "price": 1600,
+            "details": {
+                "id": 135,
+                "name": "Half & Half Medium",
+                "price": 1600,
+                "pos_code": null,
+                "ref_code": null,
+                "firstHalf": {
+                    "crust": {
+                        "price": 1400,
+                        "item_id": 91,
+                        "pos_code": "734003908",
+                        "quantity": 0.5,
+                        "ref_code": "734003908",
+                        "item_name": "Authentic Thin",
+                        "option_id": 91,
+                        "variant_id": "half_1_crust",
+                        "option_name": "Crust",
+                        "variant_name": "Crust"
+                    },
+                    "pizza": {
+                        "price": 1400,
+                        "item_id": 77,
+                        "pos_code": null,
+                        "quantity": 0.5,
+                        "ref_code": null,
+                        "item_name": "Chicken Supreme",
+                        "option_id": 77,
+                        "variant_id": "half_1",
+                        "option_name": "Premium Pizzas",
+                        "variant_name": "1st Half"
+                    },
+                    "toppings": []
+                },
+                "secondHalf": {
+                    "crust": {
+                        "price": 1800,
+                        "item_id": 114,
+                        "pos_code": "2146435918",
+                        "quantity": 0.5,
+                        "ref_code": "2146435918",
+                        "item_name": "Authentic Thin",
+                        "option_id": 114,
+                        "variant_id": "half_2_crust",
+                        "option_name": "Crust",
+                        "variant_name": "Crust"
+                    },
+                    "pizza": {
+                        "price": 1800,
+                        "item_id": 83,
+                        "pos_code": null,
+                        "quantity": 0.5,
+                        "ref_code": null,
+                        "item_name": "Spicy Italian",
+                        "option_id": 83,
+                        "variant_id": "half_2",
+                        "option_name": "Signature Pizzas",
+                        "variant_name": "2nd Half"
+                    },
+                    "toppings": [
+                        {
+                            "price": 0,
+                            "heading": "TOPPINGS",
+                            "item_id": 389,
+                            "pos_code": "2146435657",
+                            "quantity": 1,
+                            "ref_code": "2146435657",
+                            "item_name": "Pepperoni",
+                            "option_id": 389,
+                            "variant_id": "half_2_customization",
+                            "option_name": "TOPPINGS",
+                            "variant_name": "2nd Half Customization"
+                        }
+                    ]
+                }
+            },
+            "options": [],
+            "pos_code": null,
+            "quantity": 1
+        }
+    },
+    "table_id": "4",
+    "orderType": "Dine In",
+    "customerInfo": {
+        "id": 2,
+        "name": "test",
+        "email": "test@gmail.com",
+        "username": "test",
+        "company_id": 3,
+        "employee_id": "3303",
+        "access_token": "484|iavOd6MLBlS9y6TzJ5pfktXQHEnKRlfrWMtndKts1a88926e"
+    },
+    "order_number": 3405,
+    "paymentMethod": "Cash"
+}
+//neechy wala wrong ha jo code abi bna rha ha lakn mujhy upar wala chaye jesy jesy upar wala half and half ka payload ha wesa hona chaye 
+{
+    "cart": {
+        "item-1": {
+            "key": "item-1",
+            "name": "Half & Half Medium",
+            "image": null,
+            "price": 1800,
+            "details": {
+                "id": 135,
+                "name": "Half & Half Medium",
+                "price": 1800,
+                "pos_code": null,
+                "ref_code": null,
+                "firstHalf": {
+                    "crust": {
+                        "price": 0,
+                        "item_id": 62,
+                        "pos_code": null,
+                        "quantity": 0.5,
+                        "ref_code": null,
+                        "item_name": "Authentic Thin",
+                        "option_id": 62,
+                        "variant_id": "half_1_crust",
+                        "option_name": "Crust",
+                        "variant_name": "Crust"
+                    },
+                    "pizza": {
+                        "price": 650,
+                        "item_id": 68,
+                        "pos_code": null,
+                        "quantity": 0.5,
+                        "ref_code": null,
+                        "item_name": "Smokey Tikka",
+                        "option_id": 68,
+                        "variant_id": "half_1",
+                        "option_name": "Classic Pizzas",
+                        "variant_name": "1st Half"
+                    },
+                    "toppings": []
+                },
+                "secondHalf": {
+                    "crust": {
+                        "price": 900,
+                        "item_id": 114,
+                        "pos_code": "734003456",
+                        "quantity": 0.5,
+                        "ref_code": "734003456",
+                        "item_name": "Authentic Thin",
+                        "option_id": 114,
+                        "variant_id": "half_2_crust",
+                        "option_name": "Crust",
+                        "variant_name": "Crust"
+                    },
+                    "pizza": {
+                        "price": 900,
+                        "item_id": 85,
+                        "pos_code": null,
+                        "quantity": 0.5,
+                        "ref_code": null,
+                        "item_name": "American Hot",
+                        "option_id": 85,
+                        "variant_id": "half_2",
+                        "option_name": "Signature Pizzas",
+                        "variant_name": "2nd Half"
+                    },
+                    "toppings": []
+                }
+            },
+            "options": [],
+            "pos_code": null,
+            "quantity": 1
+        },
+        "item-2": {
+            "key": "item-2",
+            "name": "Half & Half Medium",
+            "image": null,
+            "price": 1800,
+            "details": {
+                "id": 135,
+                "name": "Half & Half Medium",
+                "price": 1800,
+                "pos_code": null,
+                "ref_code": null,
+                "firstHalf": {
+                    "crust": {
+                        "price": 0,
+                        "item_id": 91,
+                        "pos_code": "734004014",
+                        "quantity": 0.5,
+                        "ref_code": "734004014",
+                        "item_name": "Authentic Thin",
+                        "option_id": 91,
+                        "variant_id": "half_1_crust",
+                        "option_name": "Crust",
+                        "variant_name": "Crust"
+                    },
+                    "pizza": {
+                        "price": 750,
+                        "item_id": 74,
+                        "pos_code": null,
+                        "quantity": 0.5,
+                        "ref_code": null,
+                        "item_name": "Chicken Supreme Ranch",
+                        "option_id": 74,
+                        "variant_id": "half_1",
+                        "option_name": "Premium Pizzas",
+                        "variant_name": "1st Half"
+                    },
+                    "toppings": []
+                },
+                "secondHalf": {
+                    "crust": {
+                        "price": 900,
+                        "item_id": 114,
+                        "pos_code": "2146435918",
+                        "quantity": 0.5,
+                        "ref_code": "2146435918",
+                        "item_name": "Authentic Thin",
+                        "option_id": 114,
+                        "variant_id": "half_2_crust",
+                        "option_name": "Crust",
+                        "variant_name": "Crust"
+                    },
+                    "pizza": {
+                        "price": 900,
+                        "item_id": 83,
+                        "pos_code": null,
+                        "quantity": 0.5,
+                        "ref_code": null,
+                        "item_name": "Spicy Italian",
+                        "option_id": 83,
+                        "variant_id": "half_2",
+                        "option_name": "Signature Pizzas",
+                        "variant_name": "2nd Half"
+                    },
+                    "toppings": [
+                        {
+                            "price": 0,
+                            "heading": "TOPPINGS",
+                            "item_id": 389,
+                            "pos_code": "2146435657",
+                            "quantity": 1,
+                            "ref_code": "2146435657",
+                            "item_name": "Pepperoni",
+                            "option_id": 389,
+                            "variant_id": "half_2_customization",
+                            "option_name": "TOPPINGS",
+                            "variant_name": "2nd Half Customization"
+                        }
+                    ]
+                }
+            },
+            "options": [],
+            "pos_code": null,
+            "quantity": 1
+        },
+        "item-3": {
+            "key": "item-3",
+            "name": "Half & Half Medium",
+            "image": null,
+            "price": 1400,
+            "details": {
+                "id": 135,
+                "name": "Half & Half Medium",
+                "price": 1400,
+                "pos_code": null,
+                "ref_code": null,
+                "firstHalf": {
+                    "crust": {
+                        "price": 650,
+                        "item_id": 91,
+                        "pos_code": "734003907",
+                        "quantity": 0.5,
+                        "ref_code": "734003907",
+                        "item_name": "Authentic Thin",
+                        "option_id": 91,
+                        "variant_id": "half_1_crust",
+                        "option_name": "Crust",
+                        "variant_name": "Crust"
+                    },
+                    "pizza": {
+                        "price": 750,
+                        "item_id": 76,
+                        "pos_code": null,
+                        "quantity": 0.5,
+                        "ref_code": null,
+                        "item_name": "Chciken Shawarma",
+                        "option_id": 76,
+                        "variant_id": "half_1",
+                        "option_name": "Premium Pizzas",
+                        "variant_name": "1st Half"
+                    },
+                    "toppings": []
+                },
+                "secondHalf": {
+                    "crust": {
+                        "price": 0,
+                        "item_id": 62,
+                        "pos_code": null,
+                        "quantity": 0.5,
+                        "ref_code": null,
+                        "item_name": "Authentic Thin",
+                        "option_id": 62,
+                        "variant_id": "half_2_crust",
+                        "option_name": "Crust",
+                        "variant_name": "Crust"
+                    },
+                    "pizza": {
+                        "price": 650,
+                        "item_id": 68,
+                        "pos_code": null,
+                        "quantity": 0.5,
+                        "ref_code": null,
+                        "item_name": "Smokey Tikka",
+                        "option_id": 68,
+                        "variant_id": "half_2",
+                        "option_name": "Classic Pizzas",
+                        "variant_name": "2nd Half"
+                    },
+                    "toppings": []
+                }
+            },
+            "options": [],
+            "pos_code": null,
+            "quantity": 1
+        }
+    },
+    "table_id": "14",
+    "orderType": "Dine In",
+    "customerInfo": {
+        "id": 2,
+        "name": "test",
+        "email": "test@gmail.com",
+        "username": "test",
+        "company_id": 3,
+        "employee_id": "3303",
+        "access_token": "485|Zni2rILgsWWlQ40FcBXjova91ZVHqlnPYBUVkOJB9fbcb446"
+    },
+    "order_number": 3408,
+    "paymentMethod": "Cash"
+}

@@ -9,6 +9,7 @@ import {
   getBanners
 } from '../services/APIservice';
 import Config from '../constants/Config';
+import getErrorMessage from '../utils/errorHelper';
 
 export const StoreContext = createContext({});
 
@@ -98,7 +99,7 @@ const StoreContextProvider = ({ children }) => {
         if (savedCustomer) {
           try {
             userCompId = JSON.parse(savedCustomer).company_id;
-          } catch (e) {}
+          } catch (e) { }
         }
 
         const compIdToUse = activeBranch?.company_id || userCompId;
@@ -117,9 +118,9 @@ const StoreContextProvider = ({ children }) => {
         if (compIdToUse) {
           try {
             const tradeAreasData = await getTradeAreas(compIdToUse);
-          if (tradeAreasData && tradeAreasData.status) {
-            setTradeAreas(tradeAreasData.trade_areas);
-          }
+            if (tradeAreasData && tradeAreasData.status) {
+              setTradeAreas(tradeAreasData.trade_areas);
+            }
           } catch (e) {
             console.warn('Trade areas fetch failed, continuing without trade areas:', e.message);
           }
@@ -172,7 +173,7 @@ const StoreContextProvider = ({ children }) => {
         deviceDetails: deviceDetails,
         device_details: deviceDetails
       };
-      console.log('Login payload:', payload);
+      // console.log('Login payload:', payload);
       const response = await axios.post(`${Config.BASE_URL}/app-users/login`, payload);
 
       if (response.data && response.data.status) {
@@ -226,9 +227,7 @@ const StoreContextProvider = ({ children }) => {
       };
     } catch (error) {
       console.log('Login error:', error.message || error);
-      const apiMessage = error.response && error.response.data && error.response.data.message 
-        ? error.response.data.message 
-        : error.message || 'Login error occurred';
+      const apiMessage = getErrorMessage(error, 'Login error occurred');
       return { success: false, message: apiMessage };
     }
   };

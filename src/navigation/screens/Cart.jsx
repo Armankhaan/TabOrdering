@@ -5,6 +5,7 @@ import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { ThemeContext } from '../../context/ThemeContext';
 import axios from 'axios';
 import Config from '../../constants/Config';
+import getErrorMessage from '../../utils/errorHelper';
 
 
 const RenderDetails = ({ details }) => {
@@ -33,15 +34,66 @@ const RenderDetails = ({ details }) => {
                 <Text style={[styles.detailLine, { fontWeight: '700' }]}>
                   • {prod.name || prod.product?.name || prod.display_name}
                 </Text>
-                {slotToppings
-                  .map(t => {
+                
+                {(prod.firstHalf || prod.secondHalf) ? (
+                  <View style={{ marginTop: 6, marginLeft: 8 }}>
+                    {prod.firstHalf && (
+                      <View style={{ marginBottom: 8 }}>
+                        <Text style={styles.subHeading}>1st Half: {prod.firstHalf.pizza?.item_name}</Text>
+                        {prod.firstHalf.crust && (
+                          <Text style={[styles.detailLine, { paddingLeft: 8 }]}>
+                            • Crust: {prod.firstHalf.crust.item_name}
+                          </Text>
+                        )}
+                        {prod.firstHalf.toppings && prod.firstHalf.toppings.length > 0 && (
+                          <>
+                            <Text style={[styles.detailLine, { paddingLeft: 8, fontWeight: '600', marginTop: 2 }]}>Toppings:</Text>
+                            {prod.firstHalf.toppings.map((t, idx) => {
+                              const isRemoved = t.quantity === -0.5 || t.quantity === -1;
+                              return (
+                                <Text key={idx} style={[styles.detailLine, { paddingLeft: 16, opacity: isRemoved ? 0.5 : 1, textDecorationLine: isRemoved ? 'line-through' : 'none' }]}>
+                                  {isRemoved ? '– [Removed] ' : '+ '} {t.item_name} {Number(t.price) > 0 ? `(Rs ${(Number(t.price) * 0.5).toFixed(0)})` : ''}
+                                </Text>
+                              );
+                            })}
+                          </>
+                        )}
+                      </View>
+                    )}
+                    {prod.secondHalf && (
+                      <View style={{ marginBottom: 8 }}>
+                        <Text style={styles.subHeading}>2nd Half: {prod.secondHalf.pizza?.item_name}</Text>
+                        {prod.secondHalf.crust && (
+                          <Text style={[styles.detailLine, { paddingLeft: 8 }]}>
+                            • Crust: {prod.secondHalf.crust.item_name}
+                          </Text>
+                        )}
+                        {prod.secondHalf.toppings && prod.secondHalf.toppings.length > 0 && (
+                          <>
+                            <Text style={[styles.detailLine, { paddingLeft: 8, fontWeight: '600', marginTop: 2 }]}>Toppings:</Text>
+                            {prod.secondHalf.toppings.map((t, idx) => {
+                              const isRemoved = t.quantity === -0.5 || t.quantity === -1;
+                              return (
+                                <Text key={idx} style={[styles.detailLine, { paddingLeft: 16, opacity: isRemoved ? 0.5 : 1, textDecorationLine: isRemoved ? 'line-through' : 'none' }]}>
+                                  {isRemoved ? '– [Removed] ' : '+ '} {t.item_name} {Number(t.price) > 0 ? `(Rs ${(Number(t.price) * 0.5).toFixed(0)})` : ''}
+                                </Text>
+                              );
+                            })}
+                          </>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  slotToppings.map(t => {
                     const isRemoved = t.quantity === -1;
                     return (
                       <Text key={t.id} style={[styles.detailLine, { paddingLeft: 12, fontSize: 13, opacity: isRemoved ? 0.5 : 0.8, textDecorationLine: isRemoved ? 'line-through' : 'none' }]}>
                         {isRemoved ? '– [Removed] ' : '+ '} {t.name} {Number(t.price) > 0 ? `(Rs ${t.price})` : ''}
                       </Text>
                     );
-                  })}
+                  })
+                )}
               </View>
             );
           })}
@@ -56,11 +108,62 @@ const RenderDetails = ({ details }) => {
             const isRemoved = item.quantity === -1;
             return (
               <Text key={item.item_id || idx} style={[styles.detailLine, { paddingLeft: 8, opacity: isRemoved ? 0.5 : 1, textDecorationLine: isRemoved ? 'line-through' : 'none' }]}>
-                {isRemoved ? '– [Removed] ' : '• '} {item.item_name} {Number(item.price) > 0 ? `(Rs ${Number(item.price).toFixed(0)})` : ''}
+                {isRemoved ? '– [Removed] ' : '• '} {item.item_name} {Number(item.price) > 0 ? `(Rs ${(Number(item.price) * (item.quantity || 1)).toFixed(0)})` : ''}
               </Text>
             );
           })}
         </>
+      )}
+      {/* Half & Half details */}
+      {(sel.firstHalf || sel.secondHalf) && (
+        <View style={{ marginTop: 6 }}>
+          {sel.firstHalf && (
+            <View style={{ marginBottom: 8 }}>
+              <Text style={styles.subHeading}>1st Half: {sel.firstHalf.pizza?.item_name}</Text>
+              {sel.firstHalf.crust && (
+                <Text style={[styles.detailLine, { paddingLeft: 8 }]}>
+                  • Crust: {sel.firstHalf.crust.item_name}
+                </Text>
+              )}
+              {sel.firstHalf.toppings && sel.firstHalf.toppings.length > 0 && (
+                <>
+                  <Text style={[styles.detailLine, { paddingLeft: 8, fontWeight: '600', marginTop: 2 }]}>Toppings:</Text>
+                  {sel.firstHalf.toppings.map((t, idx) => {
+                    const isRemoved = t.quantity === -0.5 || t.quantity === -1;
+                    return (
+                      <Text key={idx} style={[styles.detailLine, { paddingLeft: 16, opacity: isRemoved ? 0.5 : 1, textDecorationLine: isRemoved ? 'line-through' : 'none' }]}>
+                        {isRemoved ? '– [Removed] ' : '+ '} {t.item_name} {Number(t.price) > 0 ? `(Rs ${(Number(t.price) * 0.5).toFixed(0)})` : ''}
+                      </Text>
+                    );
+                  })}
+                </>
+              )}
+            </View>
+          )}
+          {sel.secondHalf && (
+            <View style={{ marginBottom: 8 }}>
+              <Text style={styles.subHeading}>2nd Half: {sel.secondHalf.pizza?.item_name}</Text>
+              {sel.secondHalf.crust && (
+                <Text style={[styles.detailLine, { paddingLeft: 8 }]}>
+                  • Crust: {sel.secondHalf.crust.item_name}
+                </Text>
+              )}
+              {sel.secondHalf.toppings && sel.secondHalf.toppings.length > 0 && (
+                <>
+                  <Text style={[styles.detailLine, { paddingLeft: 8, fontWeight: '600', marginTop: 2 }]}>Toppings:</Text>
+                  {sel.secondHalf.toppings.map((t, idx) => {
+                    const isRemoved = t.quantity === -0.5 || t.quantity === -1;
+                    return (
+                      <Text key={idx} style={[styles.detailLine, { paddingLeft: 16, opacity: isRemoved ? 0.5 : 1, textDecorationLine: isRemoved ? 'line-through' : 'none' }]}>
+                        {isRemoved ? '– [Removed] ' : '+ '} {t.item_name} {Number(t.price) > 0 ? `(Rs ${(Number(t.price) * 0.5).toFixed(0)})` : ''}
+                      </Text>
+                    );
+                  })}
+                </>
+              )}
+            </View>
+          )}
+        </View>
       )}
     </View>
   );
@@ -115,6 +218,21 @@ export function Cart() {
       const item = cart[key];
       if (key.startsWith('deal-') || (item.details && item.details.slots)) {
         transformed[key] = item;
+      } else if (item.details && (item.details.firstHalf || item.details.secondHalf)) {
+        const productIdStr = key.split('-')[0];
+        const productId = parseInt(productIdStr) || item.details?.id || 1;
+        transformed[key] = {
+          ...item,
+          details: {
+            id: productId,
+            name: item.name,
+            price: parseFloat(item.price || 0),
+            pos_code: item.pos_code || null,
+            ref_code: item.ref_code || '',
+            firstHalf: item.details.firstHalf,
+            secondHalf: item.details.secondHalf
+          }
+        };
       } else {
         const productIdStr = key.split('-')[0];
         const productId = parseInt(productIdStr) || item.details?.size?.item_id || 1;
@@ -177,7 +295,8 @@ export function Cart() {
       navigation.navigate('OrderSuccess', { apiData: response.data || null });
     } catch (err) {
       console.error('Order Placement Error:', err);
-      Alert.alert('Error', 'An error occurred while placing the order.');
+      const apiMessage = getErrorMessage(err, 'An error occurred while placing the order.');
+      Alert.alert('Error', apiMessage);
     } finally {
       setLoading(false);
     }

@@ -45,11 +45,73 @@ export function DealOptions() {
   const [totalPrice, setTotalPrice] = useState(parseFloat(basePrice));
   const [expandedSections, setExpandedSections] = useState({});
 
+  const [selectedFirstHalfInSlot, setSelectedFirstHalfInSlot] = useState({});
+  const [selectedSecondHalfInSlot, setSelectedSecondHalfInSlot] = useState({});
+  const [sharedCrustNameInSlot, setSharedCrustNameInSlot] = useState({});
+  const [firstHalfSelectionsInSlot, setFirstHalfSelectionsInSlot] = useState({});
+  const [secondHalfSelectionsInSlot, setSecondHalfSelectionsInSlot] = useState({});
+
   const toggleSection = (sectionId) => {
     setExpandedSections(prev => ({
       ...prev,
       [sectionId]: !prev[sectionId]
     }));
+  };
+
+  const getEffectiveCrustPriceForSlot = (slotId, crustName) => {
+    const firstHalf = selectedFirstHalfInSlot[slotId];
+    const secondHalf = selectedSecondHalfInSlot[slotId];
+    if (!firstHalf || !secondHalf) return 0;
+    
+    const firstPrice = parseFloat(firstHalf.price || firstHalf.extra_price || 0);
+    const secondPrice = parseFloat(secondHalf.price || secondHalf.extra_price || 0);
+    const higherHalf = secondPrice > firstPrice ? secondHalf : firstHalf;
+    
+    if (!higherHalf || !higherHalf.product || !higherHalf.product.variants) return 0;
+    
+    for (const v of higherHalf.product.variants) {
+      if (v.name.toLowerCase().includes('size') && v.options) {
+        const slotProd = selectedInSlots[slotId];
+        const halfVariantOptIds = slotProd?.product?.halves_variant_option_ids || [];
+        
+        let targetOpt = v.options.find(o => halfVariantOptIds.includes(o.id.toString()));
+        if (!targetOpt) targetOpt = v.options[0];
+        
+        if (targetOpt && targetOpt.items) {
+           const match = targetOpt.items.find(i => i.name === crustName);
+           if (match) {
+              return parseFloat(match.price !== undefined && match.price !== null && match.price !== '' ? match.price : match.base_price || 0);
+           }
+        }
+      }
+    }
+    return 0;
+  };
+
+  const getMatchedHalfProduct = (slotId, baseHalf, crustName) => {
+      if (!baseHalf) return null;
+      const slotProd = selectedInSlots[slotId];
+      if (!slotProd) return baseHalf;
+      const slot = dealSlots.find(s => String(s.id || `slot-${dealSlots.indexOf(s)}`) === String(slotId));
+      const slotProds = slot ? getHalfProductsForSlot(slot) : [];
+      
+      const flavourName = baseHalf.product?.name || baseHalf.display_name.split(' ')[0] || 'Unknown';
+      
+      const match = slotProds.find(p => {
+         const pFlavour = p.product?.name || p.display_name.split(' ')[0] || 'Unknown';
+         if (pFlavour !== flavourName) return false;
+         const pCrust = p.variant_items?.[0]?.name || p.display_name.replace(pFlavour, '').trim();
+         return pCrust.toLowerCase().includes((crustName||'').toLowerCase());
+      });
+      return match || baseHalf;
+  };
+
+  const getHalfProductsForSlot = (slot) => {
+     if (!slot) return [];
+     const allProducts = (slot.categories && slot.categories.length > 0)
+        ? slot.categories.flatMap(cat => cat.products || cat.items || [])
+        : (slot.products || slot.items || slot.deal_products || []);
+     return allProducts;
   };
 
   const isProdPizza = (prod) => {
@@ -190,7 +252,7 @@ export function DealOptions() {
         const existing = slotToppings[topping.id];
         if (isDefault) {
           if (existing) {
-            if (existing.quantity === 1) {
+            if (existing.quantity > 0) {
               slotToppings[topping.id] = { ...topping, heading, quantity: -1, isDefault: true };
             } else {
               slotToppings[topping.id] = { ...topping, heading, quantity: 1, isDefault: true };
@@ -214,11 +276,39 @@ export function DealOptions() {
     });
   };
 
+  const handleToppingQuantityChange = (slotId, topping, heading = 'Customization', delta) => {
+    setSelectedToppings(prev => {
+      const slotToppings = prev[slotId] ? { ...prev[slotId] } : {};
+      const isMulti = isHeadingMultiSelect(heading);
+      const isDefault = isMulti && isDefaultNestedTopping(heading, topping);
+      
+      const existing = slotToppings[topping.id];
+      const currentQty = existing ? existing.quantity : (isDefault ? 1 : 0);
+      let newQty = currentQty + delta;
+
+      if (isDefault) {
+        if (newQty < -1) newQty = -1;
+        slotToppings[topping.id] = { ...topping, heading, quantity: newQty, isDefault: true };
+      } else {
+        if (newQty <= 0) {
+          delete slotToppings[topping.id];
+        } else {
+          slotToppings[topping.id] = { ...topping, heading, quantity: newQty };
+        }
+      }
+
+      return {
+        ...prev,
+        [slotId]: slotToppings,
+      };
+    });
+  };
+
   const isToppingSelectedHelper = (slotId, topping, heading) => {
     const isMulti = isHeadingMultiSelect(heading);
     const selection = selectedToppings[slotId]?.[topping.id];
     if (selection) {
-      return selection.quantity === 1;
+      return selection.quantity >= 1;
     }
     if (isMulti && isDefaultNestedTopping(heading, topping)) {
       return true;
@@ -273,27 +363,76 @@ export function DealOptions() {
   useEffect(() => {
     let calc = parseFloat(basePrice);
 
-    // Add any extra charges from selected items if applicable
-    Object.values(selectedInSlots).forEach(item => {
-      if (item && item.extra_price) {
-        calc += parseFloat(item.extra_price);
-      }
-    });
+    Object.keys(selectedInSlots).forEach(slotId => {
+      const item = selectedInSlots[slotId];
+      if (!item) return;
 
-    // Add topping charges
-    Object.entries(selectedToppings).forEach(([slotId, toppings]) => {
-      if (selectedInSlots[slotId] && toppings) {
-        Object.values(toppings).forEach(topping => {
-          if (topping.quantity === undefined || topping.quantity > 0) {
-            const rawPrice = (topping.price !== undefined && topping.price !== null && topping.price !== '') ? topping.price : topping.base_price;
-            calc += parseFloat(rawPrice !== undefined && rawPrice !== null ? rawPrice : 0);
-          }
-        });
+      if (item.product?.product_type === 'half_and_half') {
+         const firstHalfBase = selectedFirstHalfInSlot[slotId];
+         const secondHalfBase = selectedSecondHalfInSlot[slotId];
+         const sCrust = sharedCrustNameInSlot[slotId];
+         
+         const firstHalf = getMatchedHalfProduct(slotId, firstHalfBase, sCrust) || firstHalfBase;
+         const secondHalf = getMatchedHalfProduct(slotId, secondHalfBase, sCrust) || secondHalfBase;
+         
+         const firstPrice = firstHalf ? parseFloat(firstHalf.extra_price || 0) : 0;
+         const secondPrice = secondHalf ? parseFloat(secondHalf.extra_price || 0) : 0;
+         // The extra_price of the matched crust product already contains the upcharge (e.g. 300)
+         calc += Math.max(firstPrice, secondPrice);
+         
+         const fToppings = firstHalfSelectionsInSlot[slotId] || {};
+         Object.values(fToppings).forEach(t => {
+            if (t.quantity > 0) {
+              const rawPrice = t.price !== undefined && t.price !== null && t.price !== '' ? t.price : t.base_price;
+              const toppingPrice = parseFloat(rawPrice || 0);
+              if (toppingPrice === 0) {
+                 if (t.quantity > 1) calc += 170 * (t.quantity - 1) * 0.5;
+              } else {
+                 calc += toppingPrice * t.quantity * 0.5;
+              }
+            }
+         });
+
+         const sToppings = secondHalfSelectionsInSlot[slotId] || {};
+         Object.values(sToppings).forEach(t => {
+            if (t.quantity > 0) {
+              const rawPrice = t.price !== undefined && t.price !== null && t.price !== '' ? t.price : t.base_price;
+              const toppingPrice = parseFloat(rawPrice || 0);
+              if (toppingPrice === 0) {
+                 if (t.quantity > 1) calc += 170 * (t.quantity - 1) * 0.5;
+              } else {
+                 calc += toppingPrice * t.quantity * 0.5;
+              }
+            }
+         });
+      } else {
+        if (item.extra_price) {
+          calc += parseFloat(item.extra_price);
+        }
+        // Add topping charges for regular items
+        const toppings = selectedToppings[slotId];
+        if (toppings) {
+          Object.values(toppings).forEach(topping => {
+            if (topping.quantity === undefined || topping.quantity > 0) {
+              const rawPrice = (topping.price !== undefined && topping.price !== null && topping.price !== '') ? topping.price : topping.base_price;
+              const priceVal = parseFloat(rawPrice !== undefined && rawPrice !== null ? rawPrice : 0);
+              const qty = topping.quantity !== undefined ? topping.quantity : 1;
+              
+              if (priceVal === 0 && topping.isDefault) {
+                  if (qty > 1) {
+                      calc += 170 * (qty - 1);
+                  }
+              } else {
+                  calc += priceVal * qty;
+              }
+            }
+          });
+        }
       }
     });
 
     setTotalPrice(calc * quantity);
-  }, [basePrice, selectedInSlots, selectedToppings, quantity]);
+  }, [basePrice, selectedInSlots, selectedToppings, quantity, selectedFirstHalfInSlot, selectedSecondHalfInSlot, sharedCrustNameInSlot, firstHalfSelectionsInSlot, secondHalfSelectionsInSlot]);
 
   const toggleSlotVisibility = (slotId) => {
     setVisibleSlots(prev => ({ ...prev, [slotId]: !prev[slotId] }));
@@ -338,21 +477,26 @@ export function DealOptions() {
       hasToppings = toppingsOption && toppingsOption.items && toppingsOption.items.length > 0;
     }
 
-    if (!hasToppings) {
-      const currentIdx = dealSlots.findIndex(s => (s.id || `slot-${dealSlots.indexOf(s)}`) === slotId);
+    if (!hasToppings && product?.product?.product_type !== 'half_and_half') {
+      const currentIdx = dealSlots.findIndex(s => String(s.id || `slot-${dealSlots.indexOf(s)}`) === String(slotId));
       if (currentIdx !== -1) {
         if (currentIdx < dealSlots.length - 1) {
           const nextSlot = dealSlots[currentIdx + 1];
           const nextSlotId = nextSlot.id || `slot-${currentIdx + 1}`;
           setVisibleSlots(prev => ({
             ...prev,
-            [slotId]: false,      // Close current
-            [nextSlotId]: true    // Open next
+            [slotId]: false,
+            [nextSlotId]: true
           }));
         } else {
           setVisibleSlots(prev => ({ ...prev, [slotId]: false }));
         }
       }
+    } else if (product?.product?.product_type === 'half_and_half') {
+       setExpandedSections(prev => ({
+         ...prev,
+         [`${slotId}_half_1_pizza`]: true
+       }));
     }
   };
 
@@ -386,74 +530,185 @@ export function DealOptions() {
 
   const isAllSlotsFilled = dealSlots.every((slot, index) => {
     const sId = slot.id || `slot-${index}`;
-    return !!selectedInSlots[sId];
+    const prod = selectedInSlots[sId];
+    if (!prod) return false;
+    
+    if (prod.product?.product_type === 'half_and_half') {
+      return selectedFirstHalfInSlot[sId] && selectedSecondHalfInSlot[sId] && sharedCrustNameInSlot[sId];
+    }
+    return true;
   });
 
-  const getToppingOriginalPrice = (t) => {
-    if (!menuData || !menuData.categories) return 0;
-
-    const tId = t.id;
-    const tName = (t.name || '').toLowerCase().trim();
-    const tRef = (t.ref_code || '').toLowerCase().trim();
-    const tPos = (t.pos_code || '').toLowerCase().trim();
-
-    for (const cat of menuData.categories) {
-      const products = cat.products || cat.items || [];
-      for (const prod of products) {
-        if (!prod.variants) continue;
-        for (const variant of prod.variants) {
-          if (!variant.options) continue;
-          for (const opt of variant.options) {
-            // 1. Check direct items of variant option
-            if (opt.items) {
-              for (const item of opt.items) {
-                const itemPrice = parseFloat(item.price !== undefined && item.price !== null && item.price !== '' ? item.price : item.base_price || 0);
-                if (itemPrice > 0) {
-                  if (item.id === tId) return itemPrice;
-                  if (tRef && item.ref_code && item.ref_code.toLowerCase().trim() === tRef) return itemPrice;
-                  if (tPos && item.pos_code && item.pos_code.toLowerCase().trim() === tPos) return itemPrice;
-                  if (tName && item.name && item.name.toLowerCase().trim() === tName) return itemPrice;
-                }
-
-                // 2. Crust item can have nested options/toppings
-                if (item.options) {
-                  for (const nestedOpt of item.options) {
-                    const nestedPrice = parseFloat(nestedOpt.price !== undefined && nestedOpt.price !== null && nestedOpt.price !== '' ? nestedOpt.price : nestedOpt.base_price || 0);
-                    if (nestedPrice > 0) {
-                      if (nestedOpt.id === tId) return nestedPrice;
-                      if (tRef && nestedOpt.ref_code && nestedOpt.ref_code.toLowerCase().trim() === tRef) return nestedPrice;
-                      if (tPos && nestedOpt.pos_code && nestedOpt.pos_code.toLowerCase().trim() === tPos) return nestedPrice;
-                      if (tName && nestedOpt.name && nestedOpt.name.toLowerCase().trim() === tName) return nestedPrice;
-                    }
-                  }
-                }
-              }
-            }
-
-            // 3. Check variant option itself
-            const optPrice = parseFloat(opt.price !== undefined && opt.price !== null && opt.price !== '' ? opt.price : opt.base_price || 0);
-            if (optPrice > 0) {
-              if (opt.id === tId) return optPrice;
-              if (tRef && opt.ref_code && opt.ref_code.toLowerCase().trim() === tRef) return optPrice;
-              if (tPos && opt.pos_code && opt.pos_code.toLowerCase().trim() === tPos) return optPrice;
-              if (tName && opt.name && opt.name.toLowerCase().trim() === tName) return optPrice;
-            }
-          }
-        }
-      }
-    }
-    return 0;
-  };
-
   const handleAddToCart = () => {
-    if (!isAllSlotsFilled) {
-      return Alert.alert('Incomplete Deal', 'Please make all selections before adding to cart.');
-    }
-
-    // Attach selected toppings inside each slot item as selected_toppings
     const slotsWithToppings = {};
+
     Object.keys(selectedInSlots).forEach(slotId => {
       const prod = selectedInSlots[slotId];
+      if (!prod) return;
+
+      if (prod.product?.product_type === 'half_and_half') {
+         const firstHalfBase = selectedFirstHalfInSlot[slotId];
+         const secondHalfBase = selectedSecondHalfInSlot[slotId];
+         const sCrust = sharedCrustNameInSlot[slotId];
+         
+         const firstHalf = getMatchedHalfProduct(slotId, firstHalfBase, sCrust) || firstHalfBase;
+         const secondHalf = getMatchedHalfProduct(slotId, secondHalfBase, sCrust) || secondHalfBase;
+         
+         const mapTopping = (t, prefix) => {
+            let toppingPrice = parseFloat(t.price !== undefined && t.price !== null && t.price !== '' ? t.price : t.base_price || 0);
+            if (toppingPrice === 0 && t.base_price) {
+              toppingPrice = parseFloat(t.base_price || 0);
+            }
+            const isDefault = toppingPrice === 0 || t.isDefault;
+            const qty = t.quantity !== undefined ? t.quantity : 1;
+
+            if (isDefault) {
+                if (qty === 1) {
+                    return null;
+                }
+                if (qty <= 0) {
+                    return {
+                       variant_id: prefix + '_customization',
+                       variant_name: prefix === 'half_1' ? '1st Half Customization' : '2nd Half Customization',
+                       option_id: t.id,
+                       option_name: t.heading || 'Topping',
+                       heading: t.heading || '',
+                       item_id: t.id,
+                       item_name: t.name,
+                       price: 0,
+                       quantity: -1,
+                       pos_code: t.pos_code || t.ref_code || '',
+                       ref_code: t.ref_code || ''
+                    };
+                }
+                return {
+                   variant_id: prefix + '_customization',
+                   variant_name: prefix === 'half_1' ? '1st Half Customization' : '2nd Half Customization',
+                   option_id: t.id,
+                   option_name: t.heading || 'Topping',
+                   heading: t.heading || '',
+                   item_id: t.id,
+                   item_name: t.name,
+                   price: 170 * (qty - 1),
+                   quantity: qty,
+                   pos_code: t.pos_code || t.ref_code || '',
+                   ref_code: t.ref_code || ''
+                };
+            } else {
+                if (qty <= 0) {
+                    return null;
+                }
+                return {
+                   variant_id: prefix + '_customization',
+                   variant_name: prefix === 'half_1' ? '1st Half Customization' : '2nd Half Customization',
+                   option_id: t.id,
+                   option_name: t.heading || 'Topping',
+                   heading: t.heading || '',
+                   item_id: t.id,
+                   item_name: t.name,
+                   price: toppingPrice * qty,
+                   quantity: qty,
+                   pos_code: t.pos_code || t.ref_code || '',
+                   ref_code: t.ref_code || ''
+                };
+            }
+         };
+
+         const fToppings = Object.values(firstHalfSelectionsInSlot[slotId] || {})
+             .map(t => mapTopping(t, 'half_1'))
+             .filter(t => t !== null);
+         const sToppings = Object.values(secondHalfSelectionsInSlot[slotId] || {})
+             .map(t => mapTopping(t, 'half_2'))
+             .filter(t => t !== null);
+
+         const firstPrice = parseFloat(firstHalf.extra_price || 0);
+         const secondPrice = parseFloat(secondHalf.extra_price || 0);
+         // higherPrice is only the extra_price of the matched product (which covers crust markup)
+         const higherPrice = Math.max(firstPrice, secondPrice);
+         // However, the payload needs the full crust price in the crust object
+         const crustPrice = sCrust ? getEffectiveCrustPriceForSlot(slotId, sCrust) : 0;
+         
+         const higherHalf = secondPrice > firstPrice ? secondHalf : firstHalf;
+         let crustPos = '';
+         let crustRef = '';
+         let crustId = 113; // default
+         if (higherHalf?.product?.variants) {
+             const sizeVar = higherHalf.product.variants.find(v => v.name.toLowerCase().includes('size'));
+             const halfVariantOptIds = prod.product.halves_variant_option_ids || [];
+             let sizeOpt = sizeVar?.options?.find(o => halfVariantOptIds.includes(o.id.toString()));
+             if (!sizeOpt) sizeOpt = sizeVar?.options?.[0];
+             const cItem = sizeOpt?.items?.find(i => i.name === sCrust);
+             if (cItem) {
+                 crustId = cItem.id;
+                 crustPos = cItem.pos_code || '';
+                 crustRef = cItem.ref_code || '';
+             }
+         }
+
+         slotsWithToppings[slotId] = {
+            id: prod.id,
+            name: prod.product?.name || prod.display_name,
+            price: higherPrice,
+            ref_code: prod.ref_code || prod.product?.ref_code || '',
+            pos_code: prod.pos_code || prod.product?.pos_code || '',
+            isHalfAndHalf: true,
+            firstHalf: {
+                pizza: {
+                    variant_id: 'half_1',
+                    variant_name: '1st Half',
+                    option_id: firstHalf.id,
+                    option_name: 'Signature Pizzas',
+                    item_id: firstHalf.id,
+                    item_name: firstHalf.name || firstHalf.display_name || firstHalf.product?.name,
+                    price: 0,
+                    quantity: 0.5,
+                    pos_code: firstHalf.pos_code || firstHalf.product?.pos_code || '',
+                    ref_code: firstHalf.ref_code || firstHalf.product?.ref_code || ''
+                },
+                crust: sCrust ? {
+                    variant_id: 'half_1_crust',
+                    variant_name: 'Crust',
+                    option_id: crustId,
+                    option_name: 'Crust',
+                    item_id: crustId,
+                    item_name: sCrust,
+                    price: 0,
+                    quantity: 0.5,
+                    pos_code: crustPos,
+                    ref_code: crustRef
+                } : null,
+                toppings: fToppings
+            },
+            secondHalf: {
+                pizza: {
+                    variant_id: 'half_2',
+                    variant_name: '2nd Half',
+                    option_id: secondHalf.id,
+                    option_name: 'Signature Pizzas',
+                    item_id: secondHalf.id,
+                    item_name: secondHalf.name || secondHalf.display_name || secondHalf.product?.name,
+                    price: 0,
+                    quantity: 0.5,
+                    pos_code: secondHalf.pos_code || secondHalf.product?.pos_code || '',
+                    ref_code: secondHalf.ref_code || secondHalf.product?.ref_code || ''
+                },
+                crust: sCrust ? {
+                    variant_id: 'half_2_crust',
+                    variant_name: 'Crust',
+                    option_id: crustId,
+                    option_name: 'Crust',
+                    item_id: crustId,
+                    item_name: sCrust,
+                    price: 0,
+                    quantity: 0.5,
+                    pos_code: crustPos,
+                    ref_code: crustRef
+                } : null,
+                toppings: sToppings
+            }
+         };
+         return;
+      }
 
       const slotToppingsMap = { ...(selectedToppings[slotId] || {}) };
       if (isProdPizza(prod)) {
@@ -491,24 +746,65 @@ export function DealOptions() {
         price: parseFloat(prod.extra_price || 0),
         ref_code: prod.ref_code || prod.product?.ref_code || crustItem?.ref_code || crustItem?.product?.ref_code || '',
         pos_code: prod.pos_code || prod.product?.pos_code || crustItem?.pos_code || crustItem?.product?.pos_code || '',
+        crust: crustItem ? {
+            variant_id: 'crust',
+            variant_name: 'Crust',
+            option_id: crustItem.id,
+            option_name: 'Crust',
+            item_id: crustItem.id,
+            item_name: crustItem.name,
+            price: 0,
+            quantity: 1,
+            pos_code: crustItem.pos_code || crustItem.ref_code || '',
+            ref_code: crustItem.ref_code || ''
+        } : null,
         selected_toppings: Object.values(slotToppingsMap)
           .map(t => {
             let toppingPrice = parseFloat(t.price !== undefined && t.price !== null && t.price !== '' ? t.price : t.base_price || 0);
-            if (toppingPrice === 0) {
-              const originalPrice = getToppingOriginalPrice(t);
-              if (originalPrice > 0) {
-                toppingPrice = originalPrice;
-              }
+            if (toppingPrice === 0 && t.base_price) {
+              toppingPrice = parseFloat(t.base_price || 0);
             }
-            return {
-              id: t.id,
-              name: t.name,
-              price: toppingPrice,
-              quantity: t.quantity !== undefined ? t.quantity : 1,
-              pos_code: t.pos_code || t.ref_code || '',
-              ref_code: t.ref_code || ''
-            };
+            const qty = t.quantity !== undefined ? t.quantity : 1;
+            const isDefault = toppingPrice === 0 || t.isDefault;
+
+            if (isDefault) {
+                if (qty === 1) {
+                    return null;
+                }
+                if (qty <= 0) {
+                    return {
+                      id: t.id,
+                      name: t.name,
+                      price: 0,
+                      quantity: -1,
+                      pos_code: t.pos_code || t.ref_code || '',
+                      ref_code: t.ref_code || ''
+                    };
+                }
+                // qty > 1
+                return {
+                  id: t.id,
+                  name: t.name,
+                  price: 170 * (qty - 1),
+                  quantity: qty,
+                  pos_code: t.pos_code || t.ref_code || '',
+                  ref_code: t.ref_code || ''
+                };
+            } else {
+                if (qty <= 0) {
+                    return null;
+                }
+                return {
+                  id: t.id,
+                  name: t.name,
+                  price: toppingPrice * qty,
+                  quantity: qty,
+                  pos_code: t.pos_code || t.ref_code || '',
+                  ref_code: t.ref_code || ''
+                };
+            }
           })
+          .filter(t => t !== null)
       };
     });
 
@@ -522,7 +818,485 @@ export function DealOptions() {
     navigation.goBack();
   };
 
+  
+  const renderHalfAndHalfUI = (sId, product) => {
+     const halfProds = getHalfProductsForSlot(dealSlots.find(s => (s.id || `slot-${dealSlots.indexOf(s)}`) === sId));
+     let targetCategoryIds = [];
+     if (product.product?.halves_category_id) {
+         targetCategoryIds = product.product.halves_category_id.split(',').map(s => s.trim());
+     } else if (product.product?.halves_category_ids) {
+         targetCategoryIds = product.product.halves_category_ids.flatMap(id => id.toString().split(',')).map(s => s.trim());
+     }
+     
+     const availableHalves = halfProds.filter(p => {
+         const pCatId = p.product?.category_id?.toString();
+         const isStandard = p.product?.product_type === 'standard' || p.product?.product_type === 'variable'; 
+         // Assuming standard or variable are fine if category matches. The user said standard, so we'll check standard.
+         const isTypeOk = p.product?.product_type === 'standard' || !p.product?.product_type; // fallback
+         return isTypeOk && pCatId && targetCategoryIds.includes(pCatId);
+     });
+     
+     const selectedFirstHalf = selectedFirstHalfInSlot[sId];
+     const selectedSecondHalf = selectedSecondHalfInSlot[sId];
+     const sharedCrustName = sharedCrustNameInSlot[sId];
+     const firstHalfSelections = firstHalfSelectionsInSlot[sId] || {};
+     const secondHalfSelections = secondHalfSelectionsInSlot[sId] || {};
+
+     const firstPrice = selectedFirstHalf ? parseFloat(selectedFirstHalf.price || selectedFirstHalf.extra_price || 0) : 0;
+     const secondPrice = selectedSecondHalf ? parseFloat(selectedSecondHalf.price || selectedSecondHalf.extra_price || 0) : 0;
+     const higherHalf = (secondPrice > firstPrice) ? selectedSecondHalf : selectedFirstHalf;
+     const sizeVar = higherHalf?.product?.variants?.find(v => v.name.toLowerCase().includes('size'));
+     const sizeOpt = sizeVar?.options?.find(o => product.product?.halves_variant_option_ids?.includes(o.id.toString())) || sizeVar?.options?.[0];
+     const crustOptions = sizeOpt?.items || [];
+     
+     const getCrustPrice = (crustName) => {
+        const firstHalfActual = getMatchedHalfProduct(sId, selectedFirstHalf, crustName) || selectedFirstHalf;
+        const secondHalfActual = getMatchedHalfProduct(sId, selectedSecondHalf, crustName) || selectedSecondHalf;
+        
+        const firstPrice = firstHalfActual ? parseFloat(firstHalfActual.extra_price || 0) : 0;
+        const secondPrice = secondHalfActual ? parseFloat(secondHalfActual.extra_price || 0) : 0;
+        const upgradedPrice = Math.max(firstPrice, secondPrice);
+        
+        const baseFirstPrice = selectedFirstHalf ? parseFloat(selectedFirstHalf.extra_price || 0) : 0;
+        const baseSecondPrice = selectedSecondHalf ? parseFloat(selectedSecondHalf.extra_price || 0) : 0;
+        const basePrice = Math.max(baseFirstPrice, baseSecondPrice);
+        
+        const diff = upgradedPrice - basePrice;
+        return diff > 0 ? diff : 0;
+     };
+
+     const crustNameToShow = sharedCrustName || '';
+     const selectedFirstHalfCrust = selectedFirstHalf ? getSelectedCrustItem(selectedFirstHalf) : null;
+     const selectedSecondHalfCrust = selectedSecondHalf ? getSelectedCrustItem(selectedSecondHalf) : null;
+     const firstHalfCrustOptions = selectedFirstHalfCrust?.options || [];
+     const secondHalfCrustOptions = selectedSecondHalfCrust?.options || [];
+
+     return (
+        <View style={styles.variantContainer}>
+             {/* 1st Half Selection */}
+             <TouchableOpacity 
+                 style={styles.variantHeader} 
+                 onPress={() => toggleSection(`${sId}_half_1_pizza`)}
+             >
+                 <Text style={styles.variantTitle}>
+                     1st Half Pizza {selectedFirstHalf ? `(${selectedFirstHalf.name || selectedFirstHalf.display_name})` : ''}
+                 </Text>
+                 {expandedSections[`${sId}_half_1_pizza`] ? <ChevronUp color={theme.colors.text} size={20} /> : <ChevronDown color={theme.colors.text} size={20} />}
+             </TouchableOpacity>
+             
+             {expandedSections[`${sId}_half_1_pizza`] && (
+                 <View style={{ marginBottom: 24 }}>
+                     <View style={styles.optionsWrapper}>
+                         <View style={{ marginBottom: 16 }}>
+                             <View style={styles.itemGrid}>
+                                 {groupItemsByFlavour(availableHalves).map(group => {
+                                     const isSelected = selectedFirstHalf?.product?.id === group.id || selectedFirstHalf?.id === group.id;
+                                     const p = group.items[0];
+                                     return (
+                                         <TouchableOpacity
+                                             key={group.id}
+                                             style={[styles.itemCard, isSelected && styles.itemCardSelected]}
+                                             onPress={() => {
+                                                 setSelectedFirstHalfInSlot(prev => ({...prev, [sId]: p}));
+                                                 setFirstHalfSelectionsInSlot(prev => ({...prev, [sId]: {}}));
+                                                 
+                                                 setExpandedSections(prev => ({
+                                                     ...prev,
+                                                     [`${sId}_half_1_pizza`]: false,
+                                                     [`${sId}_half_2_pizza`]: !selectedSecondHalf ? true : false,
+                                                     [`${sId}_half_shared_crust`]: selectedSecondHalf ? true : false
+                                                 }));
+                                             }}
+                                         >
+                                             <View style={styles.itemCardContent}>
+                                                 <Text style={[styles.itemLabel, isSelected && styles.itemLabelSelected]}>{group.name}</Text>
+                                                 <Text style={{fontSize: 10, color: 'red', marginTop: 4}}>{group.items.length} options</Text>
+                                             </View>
+                                             {isSelected && <View style={styles.checkCircle}><Check size={12} color="#fff" /></View>}
+                                         </TouchableOpacity>
+                                     )
+                                 })}
+                             </View>
+                         </View>
+                     </View>
+                 </View>
+             )}
+
+             {/* 2nd Half Selection */}
+             <TouchableOpacity 
+                 style={styles.variantHeader} 
+                 onPress={() => toggleSection(`${sId}_half_2_pizza`)}
+             >
+                 <Text style={styles.variantTitle}>
+                     2nd Half Pizza {selectedSecondHalf ? `(${selectedSecondHalf.name || selectedSecondHalf.display_name})` : ''}
+                 </Text>
+                 {expandedSections[`${sId}_half_2_pizza`] ? <ChevronUp color={theme.colors.text} size={20} /> : <ChevronDown color={theme.colors.text} size={20} />}
+             </TouchableOpacity>
+             
+             {expandedSections[`${sId}_half_2_pizza`] && (
+                 <View style={{ marginBottom: 24 }}>
+                     <View style={styles.optionsWrapper}>
+                         <View style={{ marginBottom: 16 }}>
+                             <View style={styles.itemGrid}>
+                                 {groupItemsByFlavour(availableHalves).map(group => {
+                                     const isSelected = selectedSecondHalf?.product?.id === group.id || selectedSecondHalf?.id === group.id;
+                                     const p = group.items[0];
+                                     return (
+                                         <TouchableOpacity
+                                             key={group.id}
+                                             style={[styles.itemCard, isSelected && styles.itemCardSelected]}
+                                             onPress={() => {
+                                                 setSelectedSecondHalfInSlot(prev => ({...prev, [sId]: p}));
+                                                 setSecondHalfSelectionsInSlot(prev => ({...prev, [sId]: {}}));
+
+                                                 setExpandedSections(prev => ({
+                                                     ...prev,
+                                                     [`${sId}_half_2_pizza`]: false,
+                                                     [`${sId}_half_shared_crust`]: true
+                                                 }));
+                                             }}
+                                         >
+                                             <View style={styles.itemCardContent}>
+                                                 <Text style={[styles.itemLabel, isSelected && styles.itemLabelSelected]}>{group.name}</Text>
+                                                 <Text style={{fontSize: 10, color: 'red', marginTop: 4}}>{group.items.length} options</Text>
+                                             </View>
+                                             {isSelected && <View style={styles.checkCircle}><Check size={12} color="#fff" /></View>}
+                                         </TouchableOpacity>
+                                     )
+                                 })}
+                             </View>
+                         </View>
+                     </View>
+                 </View>
+             )}
+
+             {/* Shared Crust Selection */}
+             {selectedFirstHalf && crustOptions.length > 0 && (
+                 <View style={{ marginBottom: 24, marginTop: -10 }}>
+                     <TouchableOpacity 
+                         style={[styles.variantHeader, { marginTop: 0 }]} 
+                         onPress={() => toggleSection(`${sId}_half_shared_crust`)}
+                     >
+                         <Text style={styles.variantTitle}>
+                             Pizza Crust {crustNameToShow ? `(${crustNameToShow})` : ''}
+                         </Text>
+                         {expandedSections[`${sId}_half_shared_crust`] ? <ChevronUp color={theme.colors.text} size={20} /> : <ChevronDown color={theme.colors.text} size={20} />}
+                     </TouchableOpacity>
+                     
+                     {expandedSections[`${sId}_half_shared_crust`] && (
+                         <View style={styles.optionGroup}>
+                             <View style={styles.itemGrid}>
+                                 {crustOptions.map(crust => {
+                                     const isSelected = crustNameToShow === crust.name;
+                                     return (
+                                         <TouchableOpacity
+                                             key={crust.id}
+                                             style={[styles.itemCard, isSelected && styles.itemCardSelected]}
+                                             onPress={() => {
+                                                 setSharedCrustNameInSlot(prev => ({...prev, [sId]: crust.name}));
+                                                 setFirstHalfSelectionsInSlot(prev => ({...prev, [sId]: {}}));
+                                                 setSecondHalfSelectionsInSlot(prev => ({...prev, [sId]: {}}));
+                                                 
+                                                 setExpandedSections(prev => ({
+                                                     ...prev,
+                                                     [`${sId}_half_shared_crust`]: false,
+                                                     [`${sId}_half_1_toppings`]: true
+                                                 }));
+                                             }}
+                                         >
+                                             <View style={styles.itemCardContent}>
+                                                 <Text style={[styles.itemLabel, isSelected && styles.itemLabelSelected]}>{crust.name}</Text>
+                                                 {getCrustPrice(crust.name) > 0 && <Text style={[styles.itemPrice, isSelected && styles.itemLabelSelected]}>+Rs {getCrustPrice(crust.name).toFixed(0)}</Text>}
+                                             </View>
+                                             {isSelected && <View style={styles.checkCircle}><Check size={12} color="#fff" /></View>}
+                                         </TouchableOpacity>
+                                     )
+                                 })}
+                             </View>
+                         </View>
+                     )}
+                 </View>
+             )}
+
+             {/* 1st Half Toppings */}
+             {firstHalfCrustOptions.length > 0 && (() => {
+                 const grouped = {};
+                 firstHalfCrustOptions.forEach(opt => {
+                     const h = opt.heading || 'Customization';
+                     if (!grouped[h]) grouped[h] = [];
+                     grouped[h].push(opt);
+                 });
+
+                 const toppingHeadings = Object.keys(grouped).filter(h => h.toLowerCase().includes('topping'));
+                 if (toppingHeadings.length === 0) return null;
+
+                 return (
+                     <View style={{ marginBottom: 24, marginTop: -10 }}>
+                         <TouchableOpacity 
+                             style={[styles.variantHeader, { marginTop: 0 }]} 
+                             onPress={() => toggleSection(`${sId}_half_1_toppings`)}
+                         >
+                             <Text style={styles.variantTitle}>1st Half Toppings</Text>
+                             {expandedSections[`${sId}_half_1_toppings`] ? <ChevronUp color={theme.colors.text} size={20} /> : <ChevronDown color={theme.colors.text} size={20} />}
+                         </TouchableOpacity>
+
+                         {expandedSections[`${sId}_half_1_toppings`] && toppingHeadings.map(heading => {
+                             const isMulti = isHeadingMultiSelect(heading);
+                             return (
+                                 <View key={heading} style={styles.optionGroup}>
+                                     <Text style={styles.optionSubTitle}>{heading}</Text>
+                                     <View style={styles.itemGrid}>
+                                         {grouped[heading].map(item => {
+                                             const key = `nested_${item.id}`;
+                                             const isTopping = true;
+                                             const isDefault = isTopping && parseFloat(item.price||0) === 0;
+                                             const isSelected = firstHalfSelections[key]?.quantity > 0 || (!firstHalfSelections[key] && isDefault);
+
+                                             return (
+                                                 <TouchableOpacity
+                                                     key={item.id}
+                                                     style={[styles.itemCard, isSelected && styles.itemCardSelected]}
+                                                     onPress={() => {
+                                                         setFirstHalfSelectionsInSlot(prev => {
+                                                             const slotToppings = prev[sId] ? {...prev[sId]} : {};
+                                                             if (isMulti) {
+                                                                 if (isSelected) {
+                                                                     const currentQty = slotToppings[key]?.quantity || (isDefault ? 1 : 0);
+                                                                     if (isDefault) slotToppings[key] = { ...item, heading, quantity: Math.max(-1, currentQty - 1) };
+                                                                     else if (currentQty <= 1) delete slotToppings[key];
+                                                                     else slotToppings[key] = { ...item, heading, quantity: currentQty - 1 };
+                                                                 } else {
+                                                                     slotToppings[key] = { ...item, heading, quantity: 1 };
+                                                                 }
+                                                             } else {
+                                                                 Object.keys(slotToppings).forEach(k => {
+                                                                     if (grouped[heading].some(gItem => `nested_${gItem.id}` === k)) {
+                                                                         delete slotToppings[k];
+                                                                     }
+                                                                 });
+                                                                 slotToppings[key] = { ...item, heading, quantity: 1 };
+                                                             }
+                                                             return { ...prev, [sId]: slotToppings };
+                                                         });
+                                                     }}
+                                                 >
+                                                     <View style={styles.itemCardContent}>
+                                                         <Text style={[styles.itemLabel, isSelected && styles.itemLabelSelected]}>{item.name}</Text>
+                                                         
+                                                         {(!isSelected) && Number(item.price) > 0 && (
+                                                             <Text style={[styles.itemPrice, isSelected && styles.itemLabelSelected]}>
+                                                                 +Rs {(Number(item.price)).toFixed(0)}
+                                                             </Text>
+                                                         )}
+
+                                                         {isSelected && (() => {
+                                                             const qty = firstHalfSelectionsInSlot[sId]?.[key]?.quantity || (isDefault ? 1 : 1);
+                                                             let extraCharge = 0;
+                                                             if (isDefault && qty > 1) {
+                                                                 extraCharge = 170 * (qty - 1);
+                                                             } else if (!isDefault && qty > 0) {
+                                                                 extraCharge = parseFloat(item.price || 0) * qty;
+                                                             }
+                                                             return (
+                                                                 <View>
+                                                                     {extraCharge > 0 && (
+                                                                         <Text style={[styles.itemPrice, styles.itemLabelSelected]}>
+                                                                             +Rs {extraCharge.toFixed(0)}
+                                                                         </Text>
+                                                                     )}
+                                                                     <View style={styles.toppingQtyContainer}>
+                                                                         <TouchableOpacity 
+                                                                             style={styles.toppingQtyBtn}
+                                                                             onPress={() => {
+                                                                                 setFirstHalfSelectionsInSlot(prev => {
+                                                                                     const next = { ...prev };
+                                                                                     const slotToppings = next[sId] ? { ...next[sId] } : {};
+                                                                                     const currentQty = slotToppings[key]?.quantity || (isDefault ? 1 : 0);
+                                                                                     if (isDefault) slotToppings[key] = { ...item, heading, quantity: Math.max(-1, currentQty - 1) };
+                                                                                     else if (currentQty <= 1) delete slotToppings[key];
+                                                                                     else slotToppings[key] = { ...item, heading, quantity: currentQty - 1 };
+                                                                                     next[sId] = slotToppings;
+                                                                                     return next;
+                                                                                 });
+                                                                             }}
+                                                                         >
+                                                                             <Minus size={14} color={theme.colors.primary} />
+                                                                         </TouchableOpacity>
+                                                                         <Text style={styles.toppingQtyText}>{qty}</Text>
+                                                                         <TouchableOpacity 
+                                                                             style={styles.toppingQtyBtn}
+                                                                             onPress={() => {
+                                                                                 setFirstHalfSelectionsInSlot(prev => {
+                                                                                     const next = { ...prev };
+                                                                                     const slotToppings = next[sId] ? { ...next[sId] } : {};
+                                                                                     const currentQty = slotToppings[key]?.quantity || (isDefault ? 1 : 0);
+                                                                                     slotToppings[key] = { ...item, heading, quantity: currentQty + 1 };
+                                                                                     next[sId] = slotToppings;
+                                                                                     return next;
+                                                                                 });
+                                                                             }}
+                                                                         >
+                                                                             <Plus size={14} color={theme.colors.primary} />
+                                                                         </TouchableOpacity>
+                                                                     </View>
+                                                                 </View>
+                                                             );
+                                                         })()}
+                                                     </View>
+
+                                                 </TouchableOpacity>
+                                             );
+                                         })}
+                                     </View>
+                                 </View>
+                             );
+                         })}
+                     </View>
+                 );
+             })()}
+
+             {/* 2nd Half Toppings */}
+             {secondHalfCrustOptions.length > 0 && (() => {
+                 const grouped = {};
+                 secondHalfCrustOptions.forEach(opt => {
+                     const h = opt.heading || 'Customization';
+                     if (!grouped[h]) grouped[h] = [];
+                     grouped[h].push(opt);
+                 });
+
+                 const toppingHeadings = Object.keys(grouped).filter(h => h.toLowerCase().includes('topping'));
+                 if (toppingHeadings.length === 0) return null;
+
+                 return (
+                     <View style={{ marginBottom: 24, marginTop: -10 }}>
+                         <TouchableOpacity 
+                             style={[styles.variantHeader, { marginTop: 0 }]} 
+                             onPress={() => toggleSection(`${sId}_half_2_toppings`)}
+                         >
+                             <Text style={styles.variantTitle}>2nd Half Toppings</Text>
+                             {expandedSections[`${sId}_half_2_toppings`] ? <ChevronUp color={theme.colors.text} size={20} /> : <ChevronDown color={theme.colors.text} size={20} />}
+                         </TouchableOpacity>
+
+                         {expandedSections[`${sId}_half_2_toppings`] && toppingHeadings.map(heading => {
+                             const isMulti = isHeadingMultiSelect(heading);
+                             return (
+                                 <View key={heading} style={styles.optionGroup}>
+                                     <Text style={styles.optionSubTitle}>{heading}</Text>
+                                     <View style={styles.itemGrid}>
+                                         {grouped[heading].map(item => {
+                                             const key = `nested_${item.id}`;
+                                             const isTopping = true;
+                                             const isDefault = isTopping && parseFloat(item.price||0) === 0;
+                                             const isSelected = secondHalfSelections[key]?.quantity > 0 || (!secondHalfSelections[key] && isDefault);
+
+                                             return (
+                                                 <TouchableOpacity
+                                                     key={item.id}
+                                                     style={[styles.itemCard, isSelected && styles.itemCardSelected]}
+                                                     onPress={() => {
+                                                         setSecondHalfSelectionsInSlot(prev => {
+                                                             const slotToppings = prev[sId] ? {...prev[sId]} : {};
+                                                             if (isMulti) {
+                                                                 if (isSelected) {
+                                                                     const currentQty = slotToppings[key]?.quantity || (isDefault ? 1 : 0);
+                                                                     if (isDefault) slotToppings[key] = { ...item, heading, quantity: Math.max(-1, currentQty - 1) };
+                                                                     else if (currentQty <= 1) delete slotToppings[key];
+                                                                     else slotToppings[key] = { ...item, heading, quantity: currentQty - 1 };
+                                                                 } else {
+                                                                     slotToppings[key] = { ...item, heading, quantity: 1 };
+                                                                 }
+                                                             } else {
+                                                                 Object.keys(slotToppings).forEach(k => {
+                                                                     if (grouped[heading].some(gItem => `nested_${gItem.id}` === k)) {
+                                                                         delete slotToppings[k];
+                                                                     }
+                                                                 });
+                                                                 slotToppings[key] = { ...item, heading, quantity: 1 };
+                                                             }
+                                                             return { ...prev, [sId]: slotToppings };
+                                                         });
+                                                     }}
+                                                 >
+                                                     <View style={styles.itemCardContent}>
+                                                         <Text style={[styles.itemLabel, isSelected && styles.itemLabelSelected]}>{item.name}</Text>
+                                                         
+                                                         {(!isSelected) && Number(item.price) > 0 && (
+                                                             <Text style={[styles.itemPrice, isSelected && styles.itemLabelSelected]}>
+                                                                 +Rs {(Number(item.price)).toFixed(0)}
+                                                             </Text>
+                                                         )}
+
+                                                         {isSelected && (() => {
+                                                             const qty = secondHalfSelectionsInSlot[sId]?.[key]?.quantity || (isDefault ? 1 : 1);
+                                                             let extraCharge = 0;
+                                                             if (isDefault && qty > 1) {
+                                                                 extraCharge = 170 * (qty - 1) * 0.5;
+                                                             } else if (!isDefault && qty > 0) {
+                                                                 extraCharge = parseFloat(item.price || 0) * qty * 0.5;
+                                                             }
+                                                             return (
+                                                                 <View>
+                                                                     {extraCharge > 0 && (
+                                                                         <Text style={[styles.itemPrice, styles.itemLabelSelected]}>
+                                                                             +Rs {extraCharge.toFixed(0)}
+                                                                         </Text>
+                                                                     )}
+                                                                     <View style={styles.toppingQtyContainer}>
+                                                                         <TouchableOpacity 
+                                                                             style={styles.toppingQtyBtn}
+                                                                             onPress={() => {
+                                                                                 setSecondHalfSelectionsInSlot(prev => {
+                                                                                     const next = { ...prev };
+                                                                                     const slotToppings = next[sId] ? { ...next[sId] } : {};
+                                                                                     const currentQty = slotToppings[key]?.quantity || (isDefault ? 1 : 0);
+                                                                                     if (isDefault) slotToppings[key] = { ...item, heading, quantity: Math.max(-1, currentQty - 1) };
+                                                                                     else if (currentQty <= 1) delete slotToppings[key];
+                                                                                     else slotToppings[key] = { ...item, heading, quantity: currentQty - 1 };
+                                                                                     next[sId] = slotToppings;
+                                                                                     return next;
+                                                                                 });
+                                                                             }}
+                                                                         >
+                                                                             <Minus size={14} color={theme.colors.primary} />
+                                                                         </TouchableOpacity>
+                                                                         <Text style={styles.toppingQtyText}>{qty}</Text>
+                                                                         <TouchableOpacity 
+                                                                             style={styles.toppingQtyBtn}
+                                                                             onPress={() => {
+                                                                                 setSecondHalfSelectionsInSlot(prev => {
+                                                                                     const next = { ...prev };
+                                                                                     const slotToppings = next[sId] ? { ...next[sId] } : {};
+                                                                                     const currentQty = slotToppings[key]?.quantity || (isDefault ? 1 : 0);
+                                                                                     slotToppings[key] = { ...item, heading, quantity: currentQty + 1 };
+                                                                                     next[sId] = slotToppings;
+                                                                                     return next;
+                                                                                 });
+                                                                             }}
+                                                                         >
+                                                                             <Plus size={14} color={theme.colors.primary} />
+                                                                         </TouchableOpacity>
+                                                                     </View>
+                                                                 </View>
+                                                             );
+                                                         })()}
+                                                     </View>
+
+                                                 </TouchableOpacity>
+                                             );
+                                         })}
+                                     </View>
+                                 </View>
+                             );
+                         })}
+                     </View>
+                 );
+             })()}
+        </View>
+     );
+  };
+
   return (
+
     <View style={styles.container}>
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 + insets.bottom }]}>
         <View style={styles.headerPanel}>
@@ -547,12 +1321,13 @@ export function DealOptions() {
         </View>
 
         {/* Slot Selections */}
-        {dealSlots.map((slot, index) => {
-          const sId = slot.id || `slot-${index}`;
-          const sName = slot.label || `Selection ${index + 1}`;
+        <View>
+          {dealSlots.map((slot, index) => {
+            const sId = slot.id || `slot-${index}`;
+            const sName = slot.label || `Selection ${index + 1}`;
 
-          return (
-            <View key={sId} style={styles.slotContainer}>
+            return (
+              <View key={sId} style={styles.slotContainer}>
               <TouchableOpacity
                 style={styles.slotHeader}
                 onPress={() => toggleSlotVisibility(sId)}
@@ -561,7 +1336,7 @@ export function DealOptions() {
                   <Text style={styles.slotTitle}>{sName}</Text>
                   {selectedInSlots[sId] && (() => {
                     const prod = selectedInSlots[sId];
-                    const toppingCount = Object.values(selectedToppings[sId] || {}).filter(t => t.quantity === 1).length;
+                    const toppingCount = Object.values(selectedToppings[sId] || {}).filter(t => t.quantity > 0).length;
                     const productName = prod.product?.name || prod.display_name || 'Item';
                     return (
                       <View>
@@ -625,7 +1400,9 @@ export function DealOptions() {
                             </TouchableOpacity>
                           </View>
 
-                          {isProdPizza(selectedProduct) ? (
+                          {selectedProduct.product?.product_type === 'half_and_half' ? (
+                            renderHalfAndHalfUI(sId, selectedProduct)
+                          ) : isProdPizza(selectedProduct) ? (
                             Object.keys(getPizzaNestedGroupedOptions(selectedProduct)).map((heading) => {
                               const headingToppings = getPizzaNestedGroupedOptions(selectedProduct)[heading];
                               const isMultiSelect = isHeadingMultiSelect(heading);
@@ -659,32 +1436,76 @@ export function DealOptions() {
                                         const priceVal = parseFloat(rawPrice !== undefined && rawPrice !== null ? rawPrice : 0);
                                         const isToppingSelected = isToppingSelectedHelper(sId, topping, heading);
 
+                                        const isDefault = priceVal === 0;
+                                        const qty = selectedToppings[sId]?.[topping.id]?.quantity || (isDefault && isToppingSelected ? 1 : 0);
+                                        
                                         return (
-                                          <TouchableOpacity
-                                            key={topping.id}
-                                            style={[
-                                              styles.toppingCard,
-                                              isToppingSelected && styles.toppingCardSelected
-                                            ]}
-                                            onPress={() => handleToggleTopping(sId, topping, heading)}
-                                          >
-                                            <View style={styles.toppingCardContent}>
-                                              <Text style={[
-                                                styles.toppingLabel,
-                                                isToppingSelected && styles.toppingLabelSelected
-                                              ]}>
-                                                {topping.name}
-                                              </Text>
-                                              {priceVal > 0 && (
-                                                <Text style={styles.toppingPrice}>+ Rs {priceVal}</Text>
-                                              )}
-                                            </View>
-                                            {isToppingSelected && (
-                                              <View style={styles.toppingCheckCircle}>
-                                                <Check size={10} color="#fff" />
+                                            <TouchableOpacity
+                                              key={topping.id}
+                                              style={[
+                                                styles.toppingCard,
+                                                isToppingSelected && styles.toppingCardSelected
+                                              ]}
+                                              onPress={() => {
+                                                if (isToppingSelected) {
+                                                    if (isDefault) handleToppingQuantityChange(sId, topping, heading, -1);
+                                                    else if (qty <= 1) handleToggleTopping(sId, topping, heading);
+                                                    else handleToppingQuantityChange(sId, topping, heading, -1);
+                                                } else {
+                                                    handleToggleTopping(sId, topping, heading);
+                                                }
+                                              }}
+                                            >
+                                              <View style={styles.toppingCardContent}>
+                                                <Text style={[
+                                                  styles.toppingLabel,
+                                                  isToppingSelected && styles.toppingLabelSelected
+                                                ]}>
+                                                  {topping.name}
+                                                </Text>
+                                                
+                                                {(!isToppingSelected) && priceVal > 0 && (
+                                                  <Text style={styles.toppingPrice}>+ Rs {priceVal}</Text>
+                                                )}
+
+                                                {isToppingSelected && (() => {
+                                                    let extraCharge = 0;
+                                                    if (isDefault && qty > 1) {
+                                                        extraCharge = 170 * (qty - 1);
+                                                    } else if (!isDefault && qty > 0) {
+                                                        extraCharge = priceVal * qty;
+                                                    }
+                                                    return (
+                                                        <View>
+                                                            {extraCharge > 0 && (
+                                                                <Text style={[styles.toppingPrice, styles.toppingLabelSelected]}>
+                                                                    +Rs {extraCharge.toFixed(0)}
+                                                                </Text>
+                                                            )}
+                                                            <View style={styles.toppingQtyContainer}>
+                                                                <TouchableOpacity 
+                                                                    style={styles.toppingQtyBtn}
+                                                                    onPress={() => {
+                                                                        if (isDefault) handleToppingQuantityChange(sId, topping, heading, -1);
+                                                                        else if (qty <= 1) handleToggleTopping(sId, topping, heading);
+                                                                        else handleToppingQuantityChange(sId, topping, heading, -1);
+                                                                    }}
+                                                                >
+                                                                    <Minus size={14} color={theme.colors.primary} />
+                                                                </TouchableOpacity>
+                                                                <Text style={styles.toppingQtyText}>{qty}</Text>
+                                                                <TouchableOpacity 
+                                                                    style={styles.toppingQtyBtn}
+                                                                    onPress={() => handleToppingQuantityChange(sId, topping, heading, 1)}
+                                                                >
+                                                                    <Plus size={14} color={theme.colors.primary} />
+                                                                </TouchableOpacity>
+                                                            </View>
+                                                        </View>
+                                                    );
+                                                })()}
                                               </View>
-                                            )}
-                                          </TouchableOpacity>
+                                              </TouchableOpacity>
                                         );
                                       })}
                                     </View>
@@ -706,6 +1527,9 @@ export function DealOptions() {
                                     const rawPrice = (topping.price !== undefined && topping.price !== null && topping.price !== '') ? topping.price : topping.base_price;
                                     const priceVal = parseFloat(rawPrice !== undefined && rawPrice !== null ? rawPrice : 0);
                                     const isToppingSelected = isToppingSelectedHelper(sId, topping, 'Customization');
+                                    const isDefault = priceVal === 0;
+                                    const qty = selectedToppings[sId]?.[topping.id]?.quantity || (isDefault && isToppingSelected ? 1 : 0);
+                                    
                                     return (
                                       <TouchableOpacity
                                         key={topping.id}
@@ -713,7 +1537,15 @@ export function DealOptions() {
                                           styles.toppingCard,
                                           isToppingSelected && styles.toppingCardSelected
                                         ]}
-                                        onPress={() => handleToggleTopping(sId, topping, 'Customization')}
+                                        onPress={() => {
+                                            if (isToppingSelected) {
+                                                if (isDefault) handleToppingQuantityChange(sId, topping, 'Customization', -1);
+                                                else if (qty <= 1) handleToggleTopping(sId, topping, 'Customization');
+                                                else handleToppingQuantityChange(sId, topping, 'Customization', -1);
+                                            } else {
+                                                handleToggleTopping(sId, topping, 'Customization');
+                                            }
+                                        }}
                                       >
                                         <View style={styles.toppingCardContent}>
                                           <Text style={[
@@ -722,15 +1554,48 @@ export function DealOptions() {
                                           ]}>
                                             {topping.name}
                                           </Text>
-                                          {priceVal > 0 && (
+                                          
+                                          {!isToppingSelected && priceVal > 0 && (
                                             <Text style={styles.toppingPrice}>+ Rs {priceVal}</Text>
                                           )}
+
+                                          {isToppingSelected && (() => {
+                                              let extraCharge = 0;
+                                              if (isDefault && qty > 1) {
+                                                  extraCharge = 170 * (qty - 1);
+                                              } else if (!isDefault && qty > 0) {
+                                                  extraCharge = priceVal * qty;
+                                              }
+                                              return (
+                                                  <View>
+                                                      {extraCharge > 0 && (
+                                                          <Text style={[styles.toppingPrice, styles.toppingLabelSelected]}>
+                                                              +Rs {extraCharge.toFixed(0)}
+                                                          </Text>
+                                                      )}
+                                                      <View style={styles.toppingQtyContainer}>
+                                                          <TouchableOpacity 
+                                                              style={styles.toppingQtyBtn}
+                                                              onPress={() => {
+                                                                  if (isDefault) handleToppingQuantityChange(sId, topping, 'Customization', -1);
+                                                                  else if (qty <= 1) handleToggleTopping(sId, topping, 'Customization');
+                                                                  else handleToppingQuantityChange(sId, topping, 'Customization', -1);
+                                                              }}
+                                                          >
+                                                              <Minus size={14} color={theme.colors.primary} />
+                                                          </TouchableOpacity>
+                                                          <Text style={styles.toppingQtyText}>{qty}</Text>
+                                                          <TouchableOpacity 
+                                                              style={styles.toppingQtyBtn}
+                                                              onPress={() => handleToppingQuantityChange(sId, topping, 'Customization', 1)}
+                                                          >
+                                                              <Plus size={14} color={theme.colors.primary} />
+                                                          </TouchableOpacity>
+                                                      </View>
+                                                  </View>
+                                              );
+                                          })()}
                                         </View>
-                                        {isToppingSelected && (
-                                          <View style={styles.toppingCheckCircle}>
-                                            <Check size={10} color="#fff" />
-                                          </View>
-                                        )}
                                       </TouchableOpacity>
                                     );
                                   })}
@@ -790,6 +1655,7 @@ export function DealOptions() {
                                   key={prod.id}
                                   style={[
                                     styles.itemCard,
+                                    dealSlots.length === 2 && { width: '100%', marginHorizontal: 0 },
                                     isSelected && styles.itemCardSelected
                                   ]}
                                   onPress={() => handleProductSelect(sId, prod)}
@@ -826,6 +1692,7 @@ export function DealOptions() {
                               key={group.id}
                               style={[
                                 styles.itemCard,
+                                dealSlots.length === 2 && { width: '100%', marginHorizontal: 0 },
                                 isAnyItemSelected && styles.itemCardSelected
                               ]}
                               onPress={() => handleFlavourSelect(sId, group)}
@@ -855,6 +1722,7 @@ export function DealOptions() {
             </View>
           );
         })}
+        </View>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
@@ -937,6 +1805,16 @@ const getStyles = theme => StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.text,
   },
+  slotsRowContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 15,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  slotColumn: {
+    flex: 1,
+    marginHorizontal: 5,
+  },
   slotContainer: {
     marginHorizontal: 20,
     marginTop: 8,
@@ -996,8 +1874,8 @@ const getStyles = theme => StyleSheet.create({
     gap: 8,
   },
   itemCard: {
-    flex: 1,
-    minWidth: '45%',
+    width: '48%',
+    margin: 4,
     backgroundColor: theme.colors.card || (theme.dark ? '#1A1A1A' : '#FFF'),
     borderRadius: 10,
     padding: 12,
@@ -1223,6 +2101,34 @@ const getStyles = theme => StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '700',
+  },
+  toppingQtyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    backgroundColor: theme.colors.background,
+    borderRadius: 8,
+    padding: 2,
+    alignSelf: 'flex-start',
+  },
+  toppingQtyBtn: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.card,
+    borderRadius: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  toppingQtyText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginHorizontal: 12,
   }
 });
 

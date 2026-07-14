@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StoreContext } from '../../context/StoreContext';
 import { ThemeContext } from '../../context/ThemeContext';
 import Config from '../../constants/Config';
+import getErrorMessage from '../../utils/errorHelper';
 
 const RED = '#D32F2F';
 
@@ -40,6 +41,21 @@ const PlaceOrderScreen = () => {
       const item = cart[key];
       if (key.startsWith('deal-') || (item.details && item.details.slots)) {
         transformed[key] = item;
+      } else if (item.details && (item.details.firstHalf || item.details.secondHalf)) {
+        const productIdStr = key.split('-')[0];
+        const productId = parseInt(productIdStr) || item.details?.id || 1;
+        transformed[key] = {
+          ...item,
+          details: {
+            id: productId,
+            name: item.name,
+            price: parseFloat(item.price || 0),
+            pos_code: item.pos_code || null,
+            ref_code: item.ref_code || '',
+            firstHalf: item.details.firstHalf,
+            secondHalf: item.details.secondHalf
+          }
+        };
       } else {
         const productIdStr = key.split('-')[0];
         const productId = parseInt(productIdStr) || item.details?.size?.item_id || 1;
@@ -104,7 +120,8 @@ const PlaceOrderScreen = () => {
       navigation.navigate('OrderSuccess', { apiData: response.data || null });
     } catch (err) {
       console.error('Order Placement Error:', err);
-      Alert.alert('Error', 'An error occurred while placing the order.');
+      const apiMessage = getErrorMessage(err, 'An error occurred while placing the order.');
+      Alert.alert('Error', apiMessage);
     } finally {
       setLoading(false);
     }

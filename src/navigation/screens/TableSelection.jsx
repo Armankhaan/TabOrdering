@@ -15,6 +15,7 @@ import { getTables, removeTable } from '../../services/APIservice';
 import { useIsFocused } from '@react-navigation/native';
 import Config from '../../constants/Config';
 import Toast from 'react-native-toast-message';
+import getErrorMessage from '../../utils/errorHelper';
 
 export default function TableSelection() {
   const navigation = useNavigation();
@@ -31,7 +32,7 @@ export default function TableSelection() {
       });
     }
   }, [selectedBranch, navigation]);
-  
+
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -69,10 +70,10 @@ export default function TableSelection() {
         return;
       }
       // Extract digits only from table if it's like "Table 5"
-      const tableNumber = typeof table === 'string' 
-        ? table.replace(/^\D+/g, '') 
+      const tableNumber = typeof table === 'string'
+        ? table.replace(/^\D+/g, '')
         : table.toString();
-      
+
       await removeTable(branchId, tableNumber);
 
       updateOrderDetails({
@@ -80,7 +81,7 @@ export default function TableSelection() {
         table_id: table, // e.g., "Table 5"
         tableName: table
       });
-      
+
       Toast.show({
         type: 'success',
         text1: 'Table Selected',
@@ -93,10 +94,11 @@ export default function TableSelection() {
       });
     } catch (error) {
       console.error('Error removing table on selection:', error);
+      const apiMessage = getErrorMessage(error, 'Could not reserve the table. Please try again.');
       Toast.show({
         type: 'error',
         text1: 'Selection Failed',
-        text2: 'Could not reserve the table. Please try again.',
+        text2: apiMessage,
       });
     }
   };
@@ -131,7 +133,7 @@ export default function TableSelection() {
       {tables.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No tables available for this branch.</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backBtn}
             onPress={() => navigation.goBack()}
           >

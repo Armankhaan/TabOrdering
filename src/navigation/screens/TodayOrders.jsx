@@ -13,6 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { getTodayOrders } from '../../services/APIservice';
 import { ThemeContext } from '../../context/ThemeContext';
 import { RefreshCw, ClipboardList, AlertCircle, Calendar } from 'lucide-react-native';
+import getErrorMessage from '../../utils/errorHelper';
 
 export function TodayOrders() {
   const navigation = useNavigation();
@@ -43,7 +44,8 @@ export function TodayOrders() {
       }
     } catch (err) {
       console.error("Error fetching orders in screen:", err);
-      setError("Failed to fetch today's orders. Please try again.");
+      const apiMessage = getErrorMessage(err, "Failed to fetch today's orders. Please try again.");
+      setError(apiMessage);
     } finally {
       setLoading(false);
       setRefreshing(false);
