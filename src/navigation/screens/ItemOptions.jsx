@@ -535,19 +535,17 @@ export function ItemOptions({ route }) {
                 secondPrice = parseFloat(selectedSecondHalf.price || 0) + (selectedSecondHalfCrust ? parseFloat(selectedSecondHalfCrust.price || 0) : 0);
             }
 
-            console.log("=== HALF & HALF PRICE CALCULATION ===");
-            console.log("1st Half Product Flavor Price (pizza + crust):", firstPrice);
-            console.log("2nd Half Product Flavor Price (pizza + crust):", secondPrice);
+
 
             if (selectedFirstHalf && selectedSecondHalf) {
                 calc = (firstPrice + secondPrice) / 2;
-                console.log("Base Pizza Average Price:", calc);
+
             } else if (selectedFirstHalf) {
                 calc = firstPrice / 2;
-                console.log("Base Pizza Price (only 1st half):", calc);
+
             } else if (selectedSecondHalf) {
                 calc = secondPrice / 2;
-                console.log("Base Pizza Price (only 2nd half):", calc);
+
             }
 
             // Add toppings prices for first half (half quantities)
@@ -563,7 +561,7 @@ export function ItemOptions({ route }) {
                     }
                 }
             });
-            console.log("1st Half Toppings Total Price Added:", toppingsTotal1);
+
             calc += toppingsTotal1;
 
             // Add toppings prices for second half (half quantities)
@@ -579,13 +577,9 @@ export function ItemOptions({ route }) {
                     }
                 }
             });
-            console.log("2nd Half Toppings Total Price Added:", toppingsTotal2);
+
             calc += toppingsTotal2;
 
-            console.log("Final Calculated Unit Price (calc):", calc);
-            console.log("Quantity Selected:", quantity);
-            console.log("Total Displayed Price (calc * quantity):", calc * quantity);
-            console.log("=====================================");
         } else {
             calc = parseFloat(price);
             Object.values(selectedSelections).forEach(item => {
@@ -758,48 +752,48 @@ export function ItemOptions({ route }) {
                     }
                     if (qty <= 0) {
                         return {
-                           variant_id: prefix + '_customization',
-                           variant_name: prefix === 'half_1' ? '1st Half Customization' : '2nd Half Customization',
-                           option_id: t.id,
-                           option_name: t.heading || 'Topping',
-                           heading: t.heading || '',
-                           item_id: t.id,
-                           item_name: t.name,
-                           price: 0,
-                           quantity: -1,
-                           pos_code: t.pos_code || t.ref_code || '',
-                           ref_code: t.ref_code || ''
+                            variant_id: prefix + '_customization',
+                            variant_name: prefix === 'half_1' ? '1st Half Customization' : '2nd Half Customization',
+                            option_id: t.id,
+                            option_name: t.heading || 'Topping',
+                            heading: t.heading || '',
+                            item_id: t.id,
+                            item_name: t.name,
+                            price: 0,
+                            quantity: -1,
+                            pos_code: t.pos_code || t.ref_code || '',
+                            ref_code: t.ref_code || ''
                         };
                     }
                     return {
-                       variant_id: prefix + '_customization',
-                       variant_name: prefix === 'half_1' ? '1st Half Customization' : '2nd Half Customization',
-                       option_id: t.id,
-                       option_name: t.heading || 'Topping',
-                       heading: t.heading || '',
-                       item_id: t.id,
-                       item_name: t.name,
-                       price: 170 * (qty - 1),
-                       quantity: qty,
-                       pos_code: t.pos_code || t.ref_code || '',
-                       ref_code: t.ref_code || ''
+                        variant_id: prefix + '_customization',
+                        variant_name: prefix === 'half_1' ? '1st Half Customization' : '2nd Half Customization',
+                        option_id: t.id,
+                        option_name: t.heading || 'Topping',
+                        heading: t.heading || '',
+                        item_id: t.id,
+                        item_name: t.name,
+                        price: 170 * (qty - 1),
+                        quantity: qty,
+                        pos_code: t.pos_code || t.ref_code || '',
+                        ref_code: t.ref_code || ''
                     };
                 } else {
                     if (qty <= 0) {
                         return null;
                     }
                     return {
-                       variant_id: prefix + '_customization',
-                       variant_name: prefix === 'half_1' ? '1st Half Customization' : '2nd Half Customization',
-                       option_id: t.id,
-                       option_name: t.heading || 'Topping',
-                       heading: t.heading || '',
-                       item_id: t.id,
-                       item_name: t.name,
-                       price: toppingPrice * qty,
-                       quantity: qty,
-                       pos_code: t.pos_code || t.ref_code || '',
-                       ref_code: t.ref_code || ''
+                        variant_id: prefix + '_customization',
+                        variant_name: prefix === 'half_1' ? '1st Half Customization' : '2nd Half Customization',
+                        option_id: t.id,
+                        option_name: t.heading || 'Topping',
+                        heading: t.heading || '',
+                        item_id: t.id,
+                        item_name: t.name,
+                        price: toppingPrice * qty,
+                        quantity: qty,
+                        pos_code: t.pos_code || t.ref_code || '',
+                        ref_code: t.ref_code || ''
                     };
                 }
             };
@@ -876,12 +870,6 @@ export function ItemOptions({ route }) {
                 secondHalf: secondHalfDetail
             };
             const unitPrice = quantity > 0 ? totalPrice / quantity : totalPrice;
-
-            console.log("=== ADD TO CART HALF & HALF DETAILS ===");
-            console.log("Base Details (details object):", JSON.stringify(baseDetails, null, 2));
-            console.log("Unit Price sent to Cart:", unitPrice);
-            console.log("Quantity:", quantity);
-            console.log("======================================");
 
             for (let i = 0; i < quantity; i++) {
                 const cartKey = `${id}-${i}-${JSON.stringify(baseDetails)}`;
@@ -1029,7 +1017,7 @@ export function ItemOptions({ route }) {
                 const optName = (option.name || '').toLowerCase();
                 const itemPrice = parseFloat(selItem.price || 0);
                 const itemQty = selItem.quantity !== undefined ? selItem.quantity : 1;
-                
+
                 const isTopping = optName.includes('topping');
                 const isDefault = isTopping && (itemPrice === 0 || selItem.isDefault);
 

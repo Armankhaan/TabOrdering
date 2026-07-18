@@ -34,7 +34,7 @@ const RenderDetails = ({ details }) => {
                 <Text style={[styles.detailLine, { fontWeight: '700' }]}>
                   • {prod.name || prod.product?.name || prod.display_name}
                 </Text>
-                
+
                 {(prod.firstHalf || prod.secondHalf) ? (
                   <View style={{ marginTop: 6, marginLeft: 8 }}>
                     {prod.firstHalf && (
@@ -284,7 +284,6 @@ export function Cart() {
         }
       };
 
-      console.log('🚀 Sending Raw Cart Payload directly from Cart:', JSON.stringify(payload, null, 2));
 
       const response = await axios.post(
         'https://api-krc.shabanbabar.com/api/public/orders',

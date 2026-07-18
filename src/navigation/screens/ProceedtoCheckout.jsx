@@ -109,7 +109,6 @@ const PlaceOrderScreen = () => {
         }
       };
 
-      console.log('🚀 Sending Raw Cart Payload:', JSON.stringify(payload, null, 2));
 
       const response = await axios.post(
         'https://api-krc.shabanbabar.com/api/public/orders',
