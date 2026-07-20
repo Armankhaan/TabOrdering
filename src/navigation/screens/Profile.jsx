@@ -13,7 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { ThemeContext } from '../../context/ThemeContext';
 
 const deliveryIcon = require('../../assets/pickup.png');
-const pickupIcon   = require('../../assets/DineIn.png');
+const pickupIcon = require('../../assets/DineIn.png');
 
 export default function Profile() {
   const navigation = useNavigation();
@@ -103,8 +103,8 @@ const makeStyles = theme => StyleSheet.create({
     backgroundColor: theme.colors.primary,
   },
   icon: {
-    width: 48,
-    height: 48,
+    width: 100,
+    height: 100,
     marginBottom: 8,
   },
   typeText: {
