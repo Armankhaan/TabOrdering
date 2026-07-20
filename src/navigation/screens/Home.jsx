@@ -20,7 +20,7 @@ const { width } = Dimensions.get('window');
 export function Home() {
   const navigation = useNavigation();
   const { theme } = useContext(ThemeContext);
-  const { selectedBranch, banners, username, orderDetails } = useContext(StoreContext);
+  const { selectedBranch, username, orderDetails } = useContext(StoreContext);
   const styles = getStyles(theme);
 
   return (
@@ -33,26 +33,6 @@ export function Home() {
           <Text style={styles.welcomeText}>Welcome back,</Text>
           <Text style={styles.usernameText}>{username || 'Guest'}</Text>
         </View>
-
-        {/* Banners Carousel */}
-        {banners.length > 0 && (
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            style={styles.bannerScroll}
-          >
-            {banners.map((banner, index) => (
-              <View key={index} style={styles.bannerContainer}>
-                <Image
-                  source={{ uri: banner.image }}
-                  style={styles.bannerImage}
-                  defaultSource={require('../../assets/Kruncheese.png')}
-                />
-              </View>
-            ))}
-          </ScrollView>
-        )}
 
         {/* Selected Location Card */}
         <View style={styles.locationCard}>

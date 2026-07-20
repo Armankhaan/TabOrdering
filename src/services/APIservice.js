@@ -155,16 +155,3 @@ export const getTodayOrders = async () => {
     throw error;
   }
 };
-
-/**
- * Legacy support for banners 
- */
-export const getBanners = async () => {
-  try {
-    const response = await axios.get('https://krc.shabanbabar.com/api/mobile-banners');
-    return response.data;
-  } catch (error) {
-    // If legacy banners fail (e.g. 503 during migration), return null to handled gracefully
-    return null;
-  }
-};

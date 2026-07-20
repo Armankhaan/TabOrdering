@@ -1,19 +1,55 @@
-import React, { useContext } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useContext, useState } from 'react';
+import { View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ThemeContext } from '../context/ThemeContext';
+import { StoreContext } from '../context/StoreContext';
+import { getProductDetails } from '../services/APIservice';
+
 const FoodItem = (props) => {
   const {
     id, name, price, description, image, ref_number, sizes = [],
-    toppings = [], crusts = [], options = [], optionTypes = [], flavours = []
+    toppings = [], crusts = [], options = [], optionTypes = [], flavours = [],
+    variants = [], modifier_groups = []
   } = props;
   const navigation = useNavigation();
-  const imageUrl = `https://krc.shabanbabar.com/storage/${image}`;
   const { theme } = useContext(ThemeContext);
   const styles = getStyles(theme);
-  const handleNavigate = () => {
+  const { menuData } = useContext(StoreContext);
+  const [loading, setLoading] = useState(false);
+
+  const handleNavigate = async () => {
+    let itemData = { ...props };
+
+    // Check if we already have detailed arrays (variants, modifier_groups etc)
+    const hasDetails = (variants && variants.length > 0) ||
+      (modifier_groups && modifier_groups.length > 0) ||
+      (optionTypes && optionTypes.length > 0) ||
+      (sizes && sizes.length > 0);
+
+    if (!hasDetails) {
+      try {
+        setLoading(true);
+        const branch = menuData?.branch;
+        const companyId = branch?.company_id;
+        const branchId = branch?.id;
+
+        if (companyId && branchId) {
+          const detailRes = await getProductDetails(id, companyId, branchId);
+          const fullProduct = detailRes?.data?.product || detailRes?.product || detailRes?.data || {};
+
+          // Merge full product data over the basic props
+          itemData = { ...itemData, ...fullProduct };
+        }
+      } catch (err) {
+        console.error('Failed to fetch product details:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
     // Filter out non-serializable props like functions
-    const { onAddToCart, ...serializableProps } = props;
+    const { onAddToCart, ...serializableProps } = itemData;
+
     navigation.navigate("ItemOptions", {
       ...serializableProps
     });
@@ -21,11 +57,15 @@ const FoodItem = (props) => {
 
   return (
     <View style={styles.itemContainer}>
-      {/* <Image source={{ uri: imageUrl }} style={styles.itemImage} /> */}
-
-      <TouchableOpacity style={styles.button} onPress={handleNavigate}>
-        <Text style={styles.itemName}>{name}</Text>
-        <Text style={styles.itemPrice}>Rs {price}</Text>
+      <TouchableOpacity style={styles.button} onPress={handleNavigate} disabled={loading}>
+        {loading ? (
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+        ) : (
+          <>
+            <Text style={styles.itemName}>{name}</Text>
+            <Text style={styles.itemPrice}>Rs {price}</Text>
+          </>
+        )}
       </TouchableOpacity>
     </View>
   );

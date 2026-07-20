@@ -1,12 +1,18 @@
 import React, { createContext, useState, useEffect } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import DeviceInfo from 'react-native-device-info';
+import * as Device from 'expo-device';
+import * as Application from 'expo-application';
 import {
   getTradeAreas,
   resolveBranch,
   getCombinedMenu,
-  getBanners
+  getCategories,
+  getProducts,
+  getProductDetails,
+  getDeals,
+  getDealDetails
 } from '../services/APIservice';
 import Config from '../constants/Config';
 import getErrorMessage from '../utils/errorHelper';
@@ -29,7 +35,6 @@ const StoreContextProvider = ({ children }) => {
   const [username, setUsername] = useState('');
   const [customerInfo, setCustomerInfo] = useState(null);
   const [orderDetails, setOrderDetails] = useState(null);
-  const [banners, setBanners] = useState([]);
 
   // Load saved data and initial trade areas on startup
   useEffect(() => {
@@ -55,7 +60,6 @@ const StoreContextProvider = ({ children }) => {
         const [
           cachedCart,
           cachedMenuData,
-          cachedBanners,
           savedCustomer,
           savedUsername,
           savedSubRegion,
@@ -63,7 +67,6 @@ const StoreContextProvider = ({ children }) => {
         ] = await Promise.all([
           safeGetItem('cartItems'),
           safeGetItem('menuData'),
-          safeGetItem('banners'),
           safeGetItem('customerInfo'),
           safeGetItem('username'),
           safeGetItem('selectedSubRegion'),
@@ -79,7 +82,6 @@ const StoreContextProvider = ({ children }) => {
             branch: parsed.branch || null
           });
         }
-        if (cachedBanners) setBanners(JSON.parse(cachedBanners));
         if (savedCustomer) setCustomerInfo(JSON.parse(savedCustomer));
         if (savedUsername) setUsername(savedUsername);
 
@@ -126,17 +128,6 @@ const StoreContextProvider = ({ children }) => {
           }
         }
 
-        // Banners fetch
-        try {
-          const bannersData = await getBanners();
-          if (bannersData) {
-            setBanners(bannersData);
-            await AsyncStorage.setItem('banners', JSON.stringify(bannersData));
-          }
-        } catch (e) {
-          console.log('Banners unavailable, using cached/empty state');
-        }
-
       } catch (e) {
         console.warn('Failed to initialize app data:', e.message);
       } finally {
@@ -155,10 +146,15 @@ const StoreContextProvider = ({ children }) => {
     let deviceId = '';
     let deviceDetails = '';
     try {
-      // getUniqueId() works across all versions of react-native-device-info
-      deviceId = await DeviceInfo.getUniqueId();
-      const deviceBrand = DeviceInfo.getBrand();
-      const deviceModel = DeviceInfo.getModel();
+      if (Platform.OS === 'android') {
+        deviceId = Application.getAndroidId();
+      } else if (Platform.OS === 'ios') {
+        deviceId = await Application.getIosIdForVendorAsync();
+      } else {
+        deviceId = 'unknown_device';
+      }
+      const deviceBrand = Device.brand || 'Unknown';
+      const deviceModel = Device.modelName || 'Unknown';
       deviceDetails = `${deviceBrand} ${deviceModel}`;
     } catch (deviceError) {
       console.warn('Failed to retrieve device details:', deviceError.message || deviceError);
@@ -255,39 +251,88 @@ const StoreContextProvider = ({ children }) => {
   const fetchMenu = async (branchId, companyId) => {
     try {
       if (!branchId || !companyId) return;
-      const menuResponse = await getCombinedMenu(companyId, branchId);
-      if (menuResponse && menuResponse.status) {
-        const fullCategories = menuResponse.menu.categories || [];
-        const fullDeals = menuResponse.menu.deals || [];
-        const branch = menuResponse.menu.branch;
 
-        // Use full data in-memory for the running session
-        setMenuData({ categories: fullCategories, deals: fullDeals, branch });
+      // 1. Fetch Deals
+      let dealsList = [];
+      try {
+        const dealsRes = await getDeals(companyId, branchId);
+        dealsList = dealsRes?.data?.deals || dealsRes?.deals || [];
+      } catch (err) {
+        console.error('Error fetching deals:', err);
+      }
 
-        // Cache only a slimmed payload to avoid CursorWindow overflow on Android
-        try {
-          const cachePayload = JSON.stringify({
-            categories: slimCategories(fullCategories),
-            deals: fullDeals.map(d => ({
-              id: d.id,
-              name: d.name,
-              price: d.price,
-              image: d.image,
-              ref_code: d.ref_code,
-              pos_code: d.pos_code,
-            })),
-            branch,
-          });
-          // Only persist if under 1.5 MB to be safe
-          if (cachePayload.length < 1_500_000) {
-            await AsyncStorage.setItem('menuData', cachePayload);
-          } else {
-            console.warn('menuData cache skipped — payload too large for AsyncStorage:', cachePayload.length, 'bytes');
-            await AsyncStorage.removeItem('menuData');
+      // We will skip fetching full deal details here (lazy load on click instead)
+      const fullDeals = dealsList;
+
+      // 3. Fetch Categories
+      let categoriesList = [];
+      try {
+        const categoriesRes = await getCategories(companyId, branchId);
+        categoriesList = categoriesRes?.data?.categories || categoriesRes?.categories || [];
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+      }
+
+      // 4. Fetch Products for each category and then Product Details for each product
+      const fullCategories = await Promise.all(
+        categoriesList.map(async (category) => {
+          try {
+            const productsRes = await getProducts(companyId, branchId, category.id);
+            const productsList = productsRes?.data?.products || productsRes?.products || [];
+
+            // We will skip fetching full product details here (lazy load on click instead)
+            return {
+              ...category,
+              products: productsList
+            };
+          } catch (err) {
+            console.error('Error fetching products for category', category.id, err);
+            return { ...category, products: [] };
           }
-        } catch (e) {
-          console.warn('Failed to save menuData cache:', e.message);
+        })
+      );
+
+
+      // We still need the branch object, we can use the currently selected branch or construct a basic one
+      // The branch data from menu was mainly used to pass along, so we can preserve the old behavior
+      // by retrieving the active branch if available.
+      let branch = null;
+      try {
+        const savedBranch = await AsyncStorage.getItem('selectedBranch');
+        if (savedBranch) {
+          branch = JSON.parse(savedBranch);
         }
+      } catch (e) { }
+      if (!branch) {
+        branch = { id: branchId, company_id: companyId };
+      }
+
+      // Use full data in-memory for the running session
+      setMenuData({ categories: fullCategories, deals: fullDeals, branch });
+
+      // Cache only a slimmed payload to avoid CursorWindow overflow on Android
+      try {
+        const cachePayload = JSON.stringify({
+          categories: slimCategories(fullCategories),
+          deals: fullDeals.map(d => ({
+            id: d.id,
+            name: d.name,
+            price: d.price,
+            image: d.image,
+            ref_code: d.ref_code,
+            pos_code: d.pos_code,
+          })),
+          branch,
+        });
+        // Only persist if under 1.5 MB to be safe
+        if (cachePayload.length < 1_500_000) {
+          await AsyncStorage.setItem('menuData', cachePayload);
+        } else {
+          console.warn('menuData cache skipped — payload too large for AsyncStorage:', cachePayload.length, 'bytes');
+          await AsyncStorage.removeItem('menuData');
+        }
+      } catch (e) {
+        console.warn('Failed to save menuData cache:', e.message);
       }
     } catch (error) {
       console.error('Error fetching menu for branch:', branchId, error.message);
@@ -400,7 +445,6 @@ const StoreContextProvider = ({ children }) => {
       value={{
         cartItems,
         menuData,
-        banners,
         loading,
         tradeAreas,
         selectedSubRegion,

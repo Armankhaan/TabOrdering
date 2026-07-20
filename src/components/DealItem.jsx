@@ -1,25 +1,54 @@
-import React, { useContext } from 'react';
-import { View, Text, Image, Button, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useContext, useState } from 'react';
+import { View, Text, Image, Button, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ThemeContext } from '../context/ThemeContext';
+import { StoreContext } from '../context/StoreContext';
+import { getDealDetails } from '../services/APIservice';
+
 const DealItem = (props) => {
   const { id, name, final_price, price, image, pos_code, deal_items = [], attached_items = [] } = props;
   const navigation = useNavigation();
-  const imageUrl = `https://krc.shabanbabar.com/storage/${image}`;
   const { theme } = useContext(ThemeContext);
   const styles = getStyles(theme);
+  const { menuData } = useContext(StoreContext);
+  const [loading, setLoading] = useState(false);
 
-  const handleNavigateToModal = () => {
+  const handleNavigateToModal = async () => {
+    // Start with whatever we already have from the list API
+    let dealData = { ...props };
+
+    // Check if we already have deal lines/slots loaded
+    const existingSlots = props.lines || props.attached_items || props.deal_items || props.slots || props.deal_product_slots || [];
+
+    if (existingSlots.length === 0) {
+      // Lazy fetch: get full deal details from API
+      try {
+        setLoading(true);
+        const branch = menuData?.branch;
+        const companyId = branch?.company_id;
+        const branchId = branch?.id;
+
+        if (companyId && branchId) {
+          const detailRes = await getDealDetails(id, companyId, branchId);
+          const fullDeal = detailRes?.data?.deal || detailRes?.deal || detailRes?.data || {};
+
+          // Merge full deal data over basic props (keeps id, name etc but adds lines, variants etc)
+          dealData = { ...dealData, ...fullDeal };
+        }
+      } catch (err) {
+        console.error('Failed to fetch deal details:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
     // Filter out non-serializable props like functions
-    const { onAddToCart, ...serializableProps } = props;
-
-    // Combine all possible slot-related fields into attached_items for the detail screen
-    const slots = props.attached_items || props.deal_items || props.lines || props.slots || props.deal_product_slots || [];
+    const { onAddToCart, ...serializableProps } = dealData;
 
     navigation.navigate("DealOptions", {
       ...serializableProps,
-      price: final_price || price,
-      attached_items: slots,
+      price: serializableProps.final_price || serializableProps.price || final_price || price,
+      attached_items: serializableProps.lines || serializableProps.attached_items || existingSlots,
     });
   };
 
@@ -30,9 +59,16 @@ const DealItem = (props) => {
       <TouchableOpacity
         style={styles.button}
         onPress={handleNavigateToModal}
+        disabled={loading}
       >
-        <Text style={styles.dealName}>{name}</Text>
-        <Text style={styles.dealPrice}>Rs {final_price || price}</Text>
+        {loading ? (
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+        ) : (
+          <>
+            <Text style={styles.dealName}>{name}</Text>
+            <Text style={styles.dealPrice}>Rs {final_price || price}</Text>
+          </>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -93,5 +129,3 @@ function getStyles(theme) {
 }
 
 export default DealItem;
-
-
