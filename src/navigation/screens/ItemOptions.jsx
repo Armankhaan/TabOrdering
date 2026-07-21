@@ -242,8 +242,8 @@ export function ItemOptions({ route }) {
         const bName = b.name.toLowerCase();
         if (aName.includes('customization')) return 1;
         if (bName.includes('customization')) return -1;
-        if (isPizza && aName.includes('size')) return -1;
-        if (isPizza && bName.includes('size')) return 1;
+        if (aName.includes('size')) return -1;
+        if (bName.includes('size')) return 1;
         return 0;
     });
 
@@ -258,7 +258,7 @@ export function ItemOptions({ route }) {
         let incomplete = false;
         variants.forEach(v => {
             const vName = v.name.toLowerCase();
-            if (isPizza && vName.includes('size')) {
+            if (vName.includes('size')) {
                 const hasSelection = v.options?.some(o => selectedSelections[`${v.id}_${o.id}`]);
                 if (!hasSelection) incomplete = true;
             }
@@ -1613,7 +1613,7 @@ export function ItemOptions({ route }) {
 
                     // Requirement indicators
                     let isRequired = false;
-                    if (isPizza && vName.includes('size')) isRequired = true;
+                    if (vName.includes('size')) isRequired = true;
                     if (isBurger && vName.includes('meal') && (hasDrink || hasFry)) isRequired = true;
 
                     return (
@@ -1649,7 +1649,7 @@ export function ItemOptions({ route }) {
                                     {(variant.options || variant.variant_options || variant.variantoption || []).map((option) => {
                                         const oName = (option.name || '').toLowerCase();
                                         const isMultiSelect = vName.includes('customization') || vName.includes('add on') || vName.includes('addon');
-                                        const isRadio = isPizza && vName.includes('size');
+                                        const isRadio = vName.includes('size');
 
                                         // Burger meal requirements on option level
                                         const isDrinkOption = oName.includes('drink');
