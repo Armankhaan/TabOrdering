@@ -870,11 +870,8 @@ export function ItemOptions({ route }) {
                 secondHalf: secondHalfDetail
             };
             const unitPrice = quantity > 0 ? totalPrice / quantity : totalPrice;
-
-            for (let i = 0; i < quantity; i++) {
-                const cartKey = `${id}-${i}-${JSON.stringify(baseDetails)}`;
-                addToCart(cartKey, unitPrice, name, image, product.pos_code || ref_code, baseDetails, 1);
-            }
+            const cartKey = `${id}-${JSON.stringify(baseDetails)}`;
+            addToCart(cartKey, unitPrice, name, image, product.pos_code || ref_code, baseDetails, quantity);
             navigation.goBack();
             return;
         }
@@ -1100,7 +1097,8 @@ export function ItemOptions({ route }) {
             customizations: customizationsSelections
         };
         const cartKey = `${id}-${JSON.stringify(details)}`;
-        addToCart(cartKey, totalPrice, name, image, product.pos_code || ref_code, details, quantity);
+        const unitPrice = quantity > 0 ? totalPrice / quantity : totalPrice;
+        addToCart(cartKey, unitPrice, name, image, product.pos_code || ref_code, details, quantity);
         navigation.goBack();
     };
 

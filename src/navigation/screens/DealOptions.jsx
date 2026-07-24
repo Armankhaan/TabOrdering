@@ -814,7 +814,8 @@ export function DealOptions() {
       basePrice,
       quantity,
     };
-    addToCart(cartKey, totalPrice, name, image, pos_code || ref_code, details, quantity);
+    const unitPrice = quantity > 0 ? totalPrice / quantity : totalPrice;
+    addToCart(cartKey, unitPrice, name, image, pos_code || ref_code, details, quantity);
     navigation.goBack();
   };
 
